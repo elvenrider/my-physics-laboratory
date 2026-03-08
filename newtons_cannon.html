@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>뉴턴의 대포 — 수평으로 던진 물체와 위성 궤도</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #060d1f; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    const W = 700;
+    const H = 700;
+    const EARTH_R = 52;
+    const CANNON_DEG = 45;
+    const GM = 3.986e14;
+    const REAL_EARTH_R = 6.4e6;
+    const METERS_PER_PX = REAL_EARTH_R / EARTH_R;
+    const V_MIN = 500;
+    const V_MAX = 12000;
+
+    const SPEED_MARKS = [
+      { v: 2000,  label: "느리게" },
+      { v: 7900,  label: "제1우주속도" },
+      { v: 9500,  label: "타원궤도" },
+      { v: 11200, label: "탈출속도" },
+    ];
+
+    function getColor(v0) {
+      if (v0 < 4000)  return "#60a5fa";
+      if (v0 < 7500)  return "#34d399";
+      if (v0 < 8500)  return "#fbbf24";
+      if (v0 < 10500) return "#e879f9";
+      return "#f87171";
+    }
+
+    function getDesc(v0) {
+      if (v0 < 3000)  return "포물선 운동 — 곧 지면에 낙하";
+      if (v0 < 7000)  return "더 멀리 날아가지만 결국 낙하";
+      if (v0 < 8300)  return "원형 궤도! 바닥이 계속 도망간다";
+      if (v0 < 10500) return "타원 궤도 — 인공위성처럼";
+      return "지구 탈출!";
+    }
+
+    function simulate(v0) {
+      const rad = (CANNON_DEG * Math.PI) / 180;
+      const tangent = rad + Math.PI / 2;
+      const dt = 4;
+
+      const sx = (EARTH_R + 14) * Math.cos(rad);
+      const sy = -(EARTH_R + 14) * Math.sin(rad);
+      const r0 = Math.sqrt(sx * sx + sy * sy) * METERS_PER_PX;
+
+      let px = sx, py = sy;
+      let vx = (v0 / METERS_PER_PX) * Math.cos(tangent);
+      let vy = -(v0 / METERS_PER_PX) * Math.sin(tangent);
+
+      const vEsc = Math.sqrt(2 * GM / r0);
+      const isBound = v0 < vEsc * 0.9995;
+
+      const pts = [{ x: px, y: py, vx, vy }];
+      const maxSteps = isBound ? 80000 : 15000;
+      let passedApoapsis = false;
+
+      for (let i = 0; i < maxSteps; i++) {
+        const d = Math.sqrt(px * px + py * py);
+        if (d < 1) break;
+        const gPx = (GM / ((d * METERS_PER_PX) ** 2)) / METERS_PER_PX;
+        vx += (-px / d) * gPx * dt;
+        vy += (-py / d) * gPx * dt;
+        px += vx * dt;
+        py += vy * dt;
+        pts.push({ x: px, y: py, vx, vy });
+
+        if (d < EARTH_R - 1) break;
+        if (!isBound && d > 3500) break;
+
+        if (isBound && i > 100) {
+          const radVel = (px * vx + py * vy) / d;
+          if (!passedApoapsis && radVel < 0) passedApoapsis = true;
+          if (passedApoapsis) {
+            const dx = px - sx, dy = py - sy;
+            if (Math.sqrt(dx * dx + dy * dy) < 3 && radVel > 0) {
+              pts.push({ x: sx, y: sy, vx: pts[0].vx, vy: pts[0].vy });
+              break;
+            }
+          }
+        }
+      }
+      return pts;
+    }
+
+    function toPath(pts) {
+      if (pts.length < 2) return "";
+      return pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" ");
+    }
+
+    const TARGET_FRAMES = 720;
+    function decimate(pts) {
+      if (pts.length <= TARGET_FRAMES) return pts;
+      const ratio = (pts.length - 1) / (TARGET_FRAMES - 1);
+      return Array.from({ length: TARGET_FRAMES }, (_, i) => pts[Math.round(i * ratio)]);
+    }
+
+    const STARS = Array.from({ length: 140 }, (_, i) => ({
+      wx: ((i * 173.1 + 50) % 2400) - 1200,
+      wy: ((i * 97.7  + 30) % 2400) - 1200,
+      r:  i % 9 === 0 ? 1.5 : 0.8,
+      op: 0.12 + (i % 5) * 0.07,
+    }));
+
+    const ARROW_COLORS = ["#f1f5f9", "#60a5fa", "#a78bfa", "#f87171"];
+
+    function NewtonsCannon() {
+      const [v0, setV0]           = useState(5000);
+      const [zoom, setZoom]       = useState(1);
+      const [traj, setTraj]       = useState([]);
+      const [stepIdx, setStepIdx] = useState(null);
+      const [playing, setPlaying] = useState(false);
+      const [camFollow, setCamFollow] = useState(true);
+      const [showVec, setShowVec] = useState(true);
+      const rafRef  = useRef(null);
+      const stepRef = useRef(0);
+      const svgRef  = useRef(null);
+
+      useEffect(() => {
+        cancelAnimationFrame(rafRef.current);
+        setPlaying(false);
+        setStepIdx(null);
+        setTraj(decimate(simulate(v0)));
+      }, [v0]);
+
+      useEffect(() => {
+        const el = svgRef.current;
+        if (!el) return;
+        const onWheel = (e) => {
+          e.preventDefault();
+          setZoom(z => Math.min(6, Math.max(0.2, z * (e.deltaY < 0 ? 1.12 : 0.9))));
+        };
+        el.addEventListener("wheel", onWheel, { passive: false });
+        return () => el.removeEventListener("wheel", onWheel);
+      }, []);
+
+      const curStep   = Math.max(0, Math.min(stepIdx !== null ? stepIdx : traj.length - 1, traj.length - 1));
+      const ball      = traj[curStep];
+      const displayed = traj.slice(0, curStep + 1);
+      const color     = getColor(v0);
+
+      const isFlying = playing || stepIdx !== null;
+      const focusX = camFollow && isFlying && ball ? ball.x : 0;
+      const focusY = camFollow && isFlying && ball ? ball.y : 0;
+      const tx = W / 2 - focusX * zoom;
+      const ty = H / 2 - focusY * zoom;
+
+      const fire = () => {
+        if (!traj.length) return;
+        cancelAnimationFrame(rafRef.current);
+        setPlaying(true);
+        stepRef.current = 0;
+        setStepIdx(0);
+        const tick = () => {
+          stepRef.current = Math.min(stepRef.current + 1, traj.length - 1);
+          setStepIdx(stepRef.current);
+          if (stepRef.current < traj.length - 1) {
+            rafRef.current = requestAnimationFrame(tick);
+          } else {
+            setPlaying(false);
+          }
+        };
+        rafRef.current = requestAnimationFrame(tick);
+      };
+
+      const reset = () => {
+        cancelAnimationFrame(rafRef.current);
+        setPlaying(false);
+        setStepIdx(null);
+      };
+
+      const cRad    = (CANNON_DEG * Math.PI) / 180;
+      const tangent = cRad + Math.PI / 2;
+      const cx0     = (EARTH_R + 14) * Math.cos(cRad);
+      const cy0     = -(EARTH_R + 14) * Math.sin(cRad);
+      const vs      = 32;
+      const tvx     = Math.cos(tangent) * vs;
+      const tvy     = -Math.sin(tangent) * vs;
+      const gD      = Math.sqrt(cx0 * cx0 + cy0 * cy0);
+      const gDx     = -cx0 / gD * 22;
+      const gDy     = -cy0 / gD * 22;
+      const invZ    = 1 / zoom;
+
+      const mk = (c) => `url(#mk${c.replace(/[^a-z0-9]/gi, "")})`;
+
+      return (
+        <div style={{
+          minHeight: "100vh", background: "#060d1f",
+          display: "flex", flexDirection: "column", alignItems: "center",
+          padding: "16px 12px",
+          fontFamily: "'Malgun Gothic','Noto Sans KR',sans-serif",
+          color: "#e2e8f0",
+        }}>
+          {/* 타이틀 */}
+          <div style={{ textAlign: "center", marginBottom: 12 }}>
+            <div style={{ fontSize: 10, letterSpacing: 5, color: "#60a5fa", opacity: 0.7, marginBottom: 3 }}>
+              NEWTON'S CANNON
+            </div>
+            <div style={{ fontSize: 19, fontWeight: 800 }}>수평으로 던진 물체 → 위성 궤도</div>
+          </div>
+
+          {/* SVG */}
+          <div ref={svgRef} style={{
+            background: "radial-gradient(ellipse at center, #0c1a3a 0%, #030810 100%)",
+            borderRadius: 18, border: "1px solid #1e3a5f",
+            boxShadow: "0 0 50px rgba(30,64,175,0.13)",
+            overflow: "hidden", cursor: "crosshair", userSelect: "none",
+          }}>
+            <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
+              <defs>
+                <radialGradient id="eg" cx="38%" cy="32%">
+                  <stop offset="0%"   stopColor="#3b82f6" />
+                  <stop offset="65%"  stopColor="#1d4ed8" />
+                  <stop offset="100%" stopColor="#172554" />
+                </radialGradient>
+                <radialGradient id="atm" cx="50%" cy="50%">
+                  <stop offset="72%"  stopColor="transparent" />
+                  <stop offset="100%" stopColor="rgba(96,165,250,0.08)" />
+                </radialGradient>
+                {ARROW_COLORS.map(c => (
+                  <marker key={c} id={`mk${c.replace(/[^a-z0-9]/gi,"")}`}
+                    markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+                    <path d="M0,0 L7,3.5 L0,7 Z" fill={c} />
+                  </marker>
+                ))}
+              </defs>
+
+              <g transform={`translate(${tx},${ty}) scale(${zoom})`}>
+                {/* 별 */}
+                {STARS.map((s, i) => (
+                  <circle key={i} cx={s.wx} cy={s.wy} r={s.r * invZ} fill="white" opacity={s.op} />
+                ))}
+
+                {/* 원궤도 기준 점선 */}
+                <circle cx={0} cy={0} r={EARTH_R + 14}
+                  fill="none" stroke="#fbbf24"
+                  strokeWidth={0.7 * invZ} strokeDasharray={`${5*invZ} ${9*invZ}`} opacity="0.18" />
+
+                {/* 전체 예상 궤적 */}
+                {stepIdx === null && traj.length > 1 && (
+                  <path d={toPath(traj)} stroke={color}
+                    strokeWidth={2.2 * invZ} fill="none" opacity="0.9" />
+                )}
+
+                {/* 지나온 궤적 */}
+                {stepIdx !== null && displayed.length > 1 && (
+                  <path d={toPath(displayed)} stroke={color}
+                    strokeWidth={2.2 * invZ} fill="none" opacity="0.85" />
+                )}
+
+                {/* 지구 */}
+                <circle cx={0} cy={0} r={EARTH_R + 10} fill="url(#atm)" />
+                <circle cx={0} cy={0} r={EARTH_R} fill="url(#eg)" />
+                {[-0.45, 0, 0.45].map((t, i) => (
+                  <ellipse key={i} cx={0} cy={t * EARTH_R * 0.9}
+                    rx={EARTH_R * 0.97}
+                    ry={EARTH_R * Math.abs(Math.cos(t * 1.2)) * 0.45 + 2}
+                    fill="none" stroke="#2563eb" strokeWidth={0.5 * invZ} opacity="0.22" />
+                ))}
+                <text x={0} y={5 * invZ} textAnchor="middle" fill="#93c5fd"
+                  fontSize={12 * invZ} fontWeight="bold">지구</text>
+
+                {/* 발사 지점 */}
+                <line
+                  x1={cx0 - Math.cos(cRad) * 6} y1={cy0 + Math.sin(cRad) * 6}
+                  x2={cx0 + Math.cos(cRad) * 6} y2={cy0 - Math.sin(cRad) * 6}
+                  stroke="#94a3b8" strokeWidth={4 * invZ} strokeLinecap="round" />
+                <circle cx={cx0} cy={cy0} r={5 * invZ}
+                  fill="#1e293b" stroke="#94a3b8" strokeWidth={2 * invZ} />
+
+                {/* 발사 전 벡터 */}
+                {showVec && stepIdx === null && (() => {
+                  const s = invZ;
+                  return (
+                    <g>
+                      <line x1={cx0} y1={cy0} x2={cx0+tvx*s} y2={cy0+tvy*s}
+                        stroke="#f1f5f9" strokeWidth={2.2*s} markerEnd={mk("#f1f5f9")} />
+                      <text x={cx0+(tvx+4)*s} y={cy0+(tvy-3)*s} fill="#f1f5f9" fontSize={11*s} fontWeight="bold">v₀</text>
+
+                      <line x1={cx0} y1={cy0} x2={cx0+tvx*s} y2={cy0}
+                        stroke="#60a5fa" strokeWidth={2.2*s} markerEnd={mk("#60a5fa")} />
+                      <text x={cx0+(tvx+4)*s} y={cy0+5*s} fill="#60a5fa" fontSize={11*s} fontWeight="bold">vₓ</text>
+
+                      <line x1={cx0+tvx*s} y1={cy0} x2={cx0+tvx*s} y2={cy0+tvy*s}
+                        stroke="#a78bfa" strokeWidth={1.2*s} strokeDasharray={`${3*s} ${3*s}`} opacity="0.6" />
+                      <text x={cx0+(tvx+5)*s} y={cy0+tvy*s/2+4*s} fill="#a78bfa" fontSize={10*s}>vy</text>
+
+                      <line x1={cx0} y1={cy0} x2={cx0+gDx*s} y2={cy0+gDy*s}
+                        stroke="#f87171" strokeWidth={2.2*s} markerEnd={mk("#f87171")} />
+                      <text x={cx0+(gDx+3)*s} y={cy0+(gDy+5)*s} fill="#f87171" fontSize={11*s} fontWeight="bold">g</text>
+                    </g>
+                  );
+                })()}
+
+                {/* 비행 중 실시간 벡터 */}
+                {showVec && playing && ball && (() => {
+                  const s   = invZ;
+                  const spd = Math.sqrt(ball.vx**2 + ball.vy**2);
+                  const sc  = Math.min(1, 55 / (spd || 1));
+                  const svx = ball.vx * sc * 18;
+                  const svy = ball.vy * sc * 18;
+                  const gd  = Math.sqrt(ball.x**2 + ball.y**2);
+                  const sgx = -ball.x / gd * 22;
+                  const sgy = -ball.y / gd * 22;
+                  return (
+                    <g>
+                      <line x1={ball.x} y1={ball.y} x2={ball.x+svx*s} y2={ball.y+svy*s}
+                        stroke="#f1f5f9" strokeWidth={2.2*s} markerEnd={mk("#f1f5f9")} />
+                      <text x={ball.x+(svx+4)*s} y={ball.y+(svy-2)*s} fill="#f1f5f9" fontSize={11*s} fontWeight="bold">v</text>
+                      <line x1={ball.x} y1={ball.y} x2={ball.x+sgx*s} y2={ball.y+sgy*s}
+                        stroke="#f87171" strokeWidth={2.2*s} markerEnd={mk("#f87171")} />
+                      <text x={ball.x+(sgx+3)*s} y={ball.y+(sgy+5)*s} fill="#f87171" fontSize={11*s} fontWeight="bold">g</text>
+                    </g>
+                  );
+                })()}
+
+                {/* 대포알 + 잔상 */}
+                {ball && stepIdx !== null && (
+                  <g>
+                    {displayed.slice(-20).map((p, i, arr) => (
+                      <circle key={i} cx={p.x} cy={p.y}
+                        r={3 * invZ * (i / arr.length)}
+                        fill={color} opacity={0.04 + (i / arr.length) * 0.22} />
+                    ))}
+                    <circle cx={ball.x} cy={ball.y} r={6 * invZ} fill={color} />
+                  </g>
+                )}
+              </g>
+
+              {/* 조준 십자선 */}
+              {playing && camFollow && (
+                <g opacity="0.4">
+                  <circle cx={W/2} cy={H/2} r={11} fill="none" stroke={color} strokeWidth="1" strokeDasharray="3 3" />
+                  <line x1={W/2-17} y1={H/2} x2={W/2-8}  y2={H/2} stroke={color} strokeWidth="1.2" />
+                  <line x1={W/2+8}  y1={H/2} x2={W/2+17} y2={H/2} stroke={color} strokeWidth="1.2" />
+                  <line x1={W/2} y1={H/2-17} x2={W/2} y2={H/2-8}  stroke={color} strokeWidth="1.2" />
+                  <line x1={W/2} y1={H/2+8}  x2={W/2} y2={H/2+17} stroke={color} strokeWidth="1.2" />
+                </g>
+              )}
+
+              <text x={W-10} y={H-10} textAnchor="end" fill="#1e3a5f" fontSize="10">
+                🖱 휠로 확대/축소  ×{zoom.toFixed(2)}
+              </text>
+            </svg>
+          </div>
+
+          {/* 컨트롤 패널 */}
+          <div style={{
+            marginTop: 14, maxWidth: 700, width: "100%",
+            background: "#0f172a", border: `1px solid ${color}33`,
+            borderRadius: 14, padding: "14px 20px",
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+              <span style={{ color, fontWeight: 700, fontSize: 13 }}>
+                v₀ = {v0.toLocaleString()} m/s
+              </span>
+              <span style={{ color: "#64748b", fontSize: 12 }}>{getDesc(v0)}</span>
+            </div>
+
+            {/* 슬라이더 */}
+            <div style={{ position: "relative", paddingBottom: 28 }}>
+              <input type="range" min={V_MIN} max={V_MAX} step={100}
+                value={v0}
+                onChange={e => { reset(); setV0(Number(e.target.value)); }}
+                style={{ width: "100%", accentColor: color, cursor: "pointer" }} />
+              {SPEED_MARKS.map(m => (
+                <div key={m.v} onClick={() => { reset(); setV0(m.v); }}
+                  style={{
+                    position: "absolute",
+                    left: `${((m.v - V_MIN) / (V_MAX - V_MIN)) * 100}%`,
+                    transform: "translateX(-50%)",
+                    top: 18, textAlign: "center", fontSize: 10,
+                    color: Math.abs(v0 - m.v) < 300 ? color : "#334155",
+                    cursor: "pointer", transition: "color 0.2s",
+                  }}>▲<br/>{m.label}</div>
+              ))}
+            </div>
+
+            {/* 버튼 */}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {!playing
+                ? <button onClick={fire} style={{
+                    padding: "8px 20px", borderRadius: 10,
+                    background: color, border: "none",
+                    color: "#050d1f", fontWeight: 800, cursor: "pointer", fontSize: 13,
+                  }}>▶ 발사!</button>
+                : <button onClick={reset} style={{
+                    padding: "8px 16px", borderRadius: 10,
+                    background: "#1e293b", border: "1px solid #334155",
+                    color: "#94a3b8", cursor: "pointer", fontSize: 12,
+                  }}>■ 정지</button>
+              }
+              <button onClick={() => setCamFollow(v => !v)} style={{
+                padding: "8px 12px", borderRadius: 10,
+                background: camFollow ? "#1e3a5f" : "#0f172a",
+                border: `1px solid ${camFollow ? "#3b82f6" : "#334155"}`,
+                color: camFollow ? "#60a5fa" : "#475569",
+                cursor: "pointer", fontSize: 11,
+              }}>📷 {camFollow ? "추적 ON" : "추적 OFF"}</button>
+              <button onClick={() => setShowVec(v => !v)} style={{
+                padding: "8px 12px", borderRadius: 10,
+                background: showVec ? "#1e3a5f" : "#0f172a",
+                border: "1px solid #334155",
+                color: showVec ? "#93c5fd" : "#475569",
+                cursor: "pointer", fontSize: 11,
+              }}>벡터 {showVec ? "ON" : "OFF"}</button>
+              <button onClick={() => setZoom(1)} style={{
+                padding: "8px 12px", borderRadius: 10,
+                background: "#0f172a", border: "1px solid #334155",
+                color: "#475569", cursor: "pointer", fontSize: 11,
+              }}>줌 초기화</button>
+            </div>
+          </div>
+
+          {/* 범례 */}
+          {showVec && (
+            <div style={{ marginTop: 10, display: "flex", gap: 16, fontSize: 11,
+              flexWrap: "wrap", justifyContent: "center" }}>
+              {[["#f1f5f9","v  속도 벡터"],["#60a5fa","vₓ 수평 성분"],
+                ["#a78bfa","vy 수직 성분"],["#f87171","g  중력 (항상 중심 방향)"]
+              ].map(([c,l]) => (
+                <span key={l} style={{ color: c, opacity: 0.85 }}>● {l}</span>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<NewtonsCannon />);
+  </script>
+</body>
+</html>
