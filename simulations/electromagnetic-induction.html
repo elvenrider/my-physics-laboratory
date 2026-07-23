@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>전자기 유도와 발전</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#E9EDF2; --card:#FFFFFF; --ink:#16202E; --muted:#5C6B80; --line:#C3CCD8;
+  --e-nuc:#B3321F; --e-rad:#D9930F; --e-chem:#2F7D42; --e-heat:#C25A2E;
+  --e-pot:#26788F; --e-kin:#3552B0; --e-elec:#6B4BA8; --e-none:#6E7787;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);
+  font-family:'IBM Plex Sans KR',system-ui,'Apple SD Gothic Neo',sans-serif;
+  font-size:15px;line-height:1.68;padding:28px 20px 90px}
+.wrap{max-width:1120px;margin:0 auto}
+
+header{border-bottom:2px solid var(--ink);padding-bottom:18px}
+.eyebrow{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+h1{font-family:'Noto Serif KR',serif;font-weight:700;font-size:clamp(24px,4vw,36px);
+  line-height:1.26;margin:0 0 10px;letter-spacing:-.01em}
+.sub{margin:0;color:var(--muted);max-width:66ch;font-size:14.5px}
+
+.tabs{display:flex;flex-wrap:wrap;margin:0 0 24px;border-bottom:1px solid var(--line)}
+.tab{font-family:'IBM Plex Sans KR',sans-serif;font-size:14.5px;font-weight:500;
+  background:none;border:none;border-bottom:3px solid transparent;color:var(--muted);
+  padding:14px 16px;cursor:pointer;margin-bottom:-1px}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--e-elec);font-weight:600}
+.tab:focus-visible{outline:3px solid var(--e-rad);outline-offset:-3px}
+.tab .tnum{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.1em;margin-right:7px}
+[hidden]{display:none !important}
+
+button{font-family:'IBM Plex Sans KR',sans-serif;font-size:13.5px;font-weight:500;
+  color:var(--ink);background:var(--card);border:1.5px solid var(--line);
+  border-radius:2px;padding:8px 13px;cursor:pointer;transition:.15s}
+button:hover{border-color:var(--ink)}
+button[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+button:focus-visible{outline:3px solid var(--e-rad);outline-offset:2px}
+
+.stage{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.16em;
+  color:var(--muted);text-transform:uppercase;font-weight:600;
+  margin:34px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:10px}
+.stage:first-of-type{margin-top:6px}
+.stage .scope{font-size:9.5px;letter-spacing:.1em;padding:2px 7px;
+  border:1px solid var(--line);margin-left:auto;font-weight:600}
+.scope.core{color:var(--e-nuc);border-color:var(--e-nuc);background:#FBEEEC}
+.scope.ext{color:var(--muted)}
+.lead{margin:0 0 16px;max-width:74ch}
+
+.defs{display:grid;grid-template-columns:repeat(auto-fit,minmax(238px,1fr));gap:10px}
+.def{background:var(--card);border:1px solid var(--line);border-top:4px solid var(--dc,var(--muted));padding:14px 16px}
+.def h4{margin:0 0 4px;font-size:15px}
+.def .term{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;
+  color:var(--dc);font-weight:600;display:block;margin-bottom:5px}
+.def p{margin:0;font-size:13.5px;color:#3C4756}
+
+.tbl{width:100%;border-collapse:collapse;background:var(--card);
+  border:1px solid var(--line);font-size:13.5px}
+.tbl th,.tbl td{padding:9px 11px;border:1px solid var(--line);text-align:left;vertical-align:top}
+.tbl th{background:#DFE4EA;font-weight:600;font-size:12.5px}
+.tbl td.c,.tbl th.c{text-align:center}
+.tbl .hi{color:var(--e-elec);font-weight:600}
+.scroll{overflow-x:auto}
+
+/* 렌츠 카드 */
+.lenz{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.lz{background:var(--card);border:1px solid var(--line);border-top:4px solid var(--lc);padding:13px 15px}
+.lz .cap{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.08em;
+  color:var(--lc);font-weight:600;margin-bottom:6px;display:block}
+.lz .act{font-weight:600;font-size:15px;margin-bottom:9px}
+.lz dl{margin:0;font-size:13px}
+.lz dt{color:var(--muted);font-size:10.5px;font-family:'IBM Plex Mono',monospace;
+  letter-spacing:.06em;margin-top:8px}
+.lz dd{margin:1px 0 0}
+.lz .force{color:var(--lc);font-weight:600}
+
+.key{background:var(--ink);color:var(--paper);padding:15px 18px;
+  border-left:6px solid var(--kc,var(--e-elec));margin:16px 0}
+.key .lab{font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.13em;
+  color:var(--kc,var(--e-elec));font-weight:600;display:block;margin-bottom:5px}
+.key p{margin:0;font-size:14px;color:#C9D3E0;max-width:78ch}
+.key b{color:#fff}
+.key ul{margin:6px 0 0;padding-left:18px;color:#C9D3E0;font-size:13.5px}
+.key li{margin-bottom:5px}
+
+.misc{background:var(--card);border:1px solid var(--line);border-left:5px solid var(--mc,var(--e-rad));padding:14px 16px;margin:14px 0}
+.misc ul{margin:0;padding-left:18px}
+.misc li{margin-bottom:6px;font-size:13.5px}
+.misc li:last-child{margin-bottom:0}
+.misc b{color:var(--e-nuc)}
+.misc .ttl{font-weight:600;margin:0 0 7px;font-size:14.5px}
+
+.chain{display:flex;align-items:center;flex-wrap:wrap;margin:10px 0 4px}
+.nd{flex:0 0 auto;border:1.5px solid var(--line);border-top:4px solid var(--nc,var(--muted));
+  background:var(--card);padding:8px 12px;font-size:13.5px;font-weight:500}
+.nd small{display:block;font-family:'IBM Plex Mono',monospace;font-size:9.5px;
+  letter-spacing:.1em;color:var(--nc);font-weight:600}
+.ar{flex:0 0 auto;padding:0 8px;color:var(--muted);font-size:12px;text-align:center;min-width:56px}
+.ar b{display:block;font-size:10px;font-weight:500;line-height:1.2}
+.ar span{color:var(--line);font-size:16px}
+.ar.emi b{color:var(--e-elec);font-weight:600}
+
+figure{margin:16px 0}
+.fig{display:block;width:100%;height:auto;background:var(--card);border:1px solid var(--line)}
+figcaption{font-size:12.5px;color:var(--muted);margin-top:8px}
+
+/* 변인 카드 */
+.vars{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px}
+.vr{background:var(--card);border:1px solid var(--line);border-left:5px solid var(--vc);padding:14px 16px}
+.vr .kind{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.1em;
+  color:var(--vc);font-weight:600;display:block;margin-bottom:5px}
+.vr h4{margin:0 0 6px;font-size:14.5px}
+.vr p{margin:0;font-size:13px;color:#3C4756}
+.vr .warn{margin-top:8px;padding-top:8px;border-top:1px dashed var(--line);
+  font-size:12.5px;color:var(--e-nuc)}
+
+/* 각도 카드 */
+.angles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.ag{background:var(--card);border:1px solid var(--line);border-top:4px solid var(--e-elec);padding:13px 15px}
+.ag .deg{font-family:'IBM Plex Mono',monospace;font-size:19px;font-weight:600;
+  color:var(--e-elec);display:block;margin-bottom:6px}
+.ag dl{margin:0;font-size:13px}
+.ag dt{color:var(--muted);font-size:10.5px;font-family:'IBM Plex Mono',monospace;
+  letter-spacing:.06em;margin-top:7px}
+.ag dd{margin:1px 0 0}
+
+@media (max-width:640px){
+  body{padding:20px 12px 70px}
+  .tab{padding:12px 10px;font-size:13.5px}
+  .ar{min-width:42px;padding:0 4px}
+}
+@media print{
+  body{background:#fff;padding:0;font-size:10.5pt}
+  .tabs,button{display:none}
+  [hidden]{display:block !important}
+  .key{background:#eee;color:#000}
+  .key p,.key ul{color:#222}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <p class="eyebrow">통합과학 2 · Ⅱ. 환경과 에너지 · 2. 에너지 전환과 활용</p>
+  <h1>전자기 유도와 발전</h1>
+  <p class="sub">거의 모든 발전 방식이 <strong>마지막 한 걸음</strong>을 이것으로 처리합니다. 원리를 알면 화력·수력·핵발전·풍력·조력이 한 문장으로 정리됩니다.</p>
+</header>
+
+<div class="tabs" role="tablist">
+  <button class="tab" role="tab" aria-selected="true" data-t="s1"><span class="tnum">01</span>유도의 원리</button>
+  <button class="tab" role="tab" aria-selected="false" data-t="s2"><span class="tnum">02</span>발전기와 발전 방식</button>
+  <button class="tab" role="tab" aria-selected="false" data-t="s3"><span class="tnum">03</span>실험 분석</button>
+</div>
+
+<!-- ═══════ 1. 유도의 원리 ═══════ -->
+<section id="s1">
+
+  <p class="stage">A · 용어부터<span class="scope core">교재 범위</span></p>
+  <div class="defs">
+    <div class="def" style="--dc:var(--e-elec)">
+      <span class="term">PHENOMENON</span><h4>전자기 유도</h4>
+      <p>코일 근처에서 자석이 움직이거나, 자석 근처에서 코일이 움직일 때 <strong>코일에 전류가 발생</strong>하는 현상. 중요한 건 <strong>상대적인 움직임</strong>이라, 둘 중 무엇이 움직여도 됩니다.</p>
+    </div>
+    <div class="def" style="--dc:var(--e-elec)">
+      <span class="term">VOLTAGE</span><h4>유도 기전력</h4>
+      <p>전자기 유도로 발생하는 <strong>전압</strong>. 유도 기전력이 클수록 유도 전류도 셉니다.</p>
+    </div>
+    <div class="def" style="--dc:var(--e-elec)">
+      <span class="term">CURRENT</span><h4>유도 전류</h4>
+      <p>전자기 유도로 코일에 <strong>흐르는 전류</strong>.</p>
+    </div>
+    <div class="def" style="--dc:var(--e-kin)">
+      <span class="term">FLUX</span><h4>자기력선속</h4>
+      <p>자기장과 <strong>수직인</strong> 단위 면적을 통과하는 자기력선의 총 수. "수평하게 지나는"이라고 쓰면 오답입니다.</p>
+    </div>
+  </div>
+
+  <p class="stage">B · 언제 흐르고, 언제 안 흐르는가<span class="scope core">교재 범위</span></p>
+  <div class="key">
+    <span class="lab">두 경우를 반드시 구분</span>
+    <ul>
+      <li><b>정지해 있으면 → 흐르지 않는다.</b> 자석이 코일 속에 있든 밖에 있든, 멈춰 있으면 자기력선속이 변하지 않으므로 유도 전류는 0입니다. "코일 내부에 정지해 있을 때 전류가 최대"는 오답.</li>
+      <li><b>내부를 지나가는 중이면 → 0이 아니다.</b> 통과하는 동안에도 자기력선속은 계속 변합니다. "코일 내부를 지나는 동안 유도 전류의 세기는 0이다"도 오답.</li>
+    </ul>
+  </div>
+  <p class="lead">즉 기준은 "코일 안이냐 밖이냐"가 아니라 <strong>"자기력선속이 변하고 있느냐"</strong> 하나입니다.</p>
+
+  <p class="stage">C · 방향 &mdash; 변화를 방해한다<span class="scope core">교재 범위</span></p>
+  <p class="lead">코일을 통과하는 자기력선속의 <strong>변화를 방해하는 방향</strong>으로 유도 전류가 흐릅니다(렌츠 법칙). 다가오면 밀어내고, 멀어지면 붙잡습니다.</p>
+  <div class="lenz">
+    <div class="lz" style="--lc:var(--e-nuc)">
+      <span class="cap">CASE 1</span>
+      <div class="act">N극을 가까이</div>
+      <dl>
+        <dt>자기력선속</dt><dd>증가</dd>
+        <dt>코일 위쪽이</dt><dd>N극이 되도록</dd>
+        <dt>자석에 작용</dt><dd class="force">밀어냄 · 척력</dd>
+      </dl>
+    </div>
+    <div class="lz" style="--lc:var(--e-pot)">
+      <span class="cap">CASE 2</span>
+      <div class="act">N극을 멀리</div>
+      <dl>
+        <dt>자기력선속</dt><dd>감소</dd>
+        <dt>코일 위쪽이</dt><dd>S극이 되도록</dd>
+        <dt>자석에 작용</dt><dd class="force">당김 · 인력</dd>
+      </dl>
+    </div>
+    <div class="lz" style="--lc:var(--e-nuc)">
+      <span class="cap">CASE 3</span>
+      <div class="act">S극을 가까이</div>
+      <dl>
+        <dt>자기력선속</dt><dd>증가(반대 방향)</dd>
+        <dt>코일 위쪽이</dt><dd>S극이 되도록</dd>
+        <dt>자석에 작용</dt><dd class="force">밀어냄 · 척력</dd>
+      </dl>
+    </div>
+    <div class="lz" style="--lc:var(--e-pot)">
+      <span class="cap">CASE 4</span>
+      <div class="act">S극을 멀리</div>
+      <dl>
+        <dt>자기력선속</dt><dd>감소(반대 방향)</dd>
+        <dt>코일 위쪽이</dt><dd>N극이 되도록</dd>
+        <dt>자석에 작용</dt><dd class="force">당김 · 인력</dd>
+      </dl>
+    </div>
+  </div>
+
+  <div class="misc" style="--mc:var(--e-elec)">
+    <p class="ttl">방향 판별 세 줄</p>
+    <ul>
+      <li><b>가까이 ↔ 멀리</b>가 바뀌면 → 전류 방향 <b>반대</b></li>
+      <li><b>N극 ↔ S극</b>이 바뀌면 → 전류 방향 <b>반대</b></li>
+      <li>따라서 <b>둘 다 바뀌면 원래대로.</b> "N극을 가까이"와 "S극을 멀리"는 같은 방향입니다. 이게 시험에 그대로 나옵니다.</li>
+      <li>오른손을 감아쥐고 엄지를 <b>코일이 만들어야 할 N극 방향</b>으로 펼 때, 네 손가락이 도는 쪽이 유도 전류의 방향.</li>
+    </ul>
+  </div>
+  <div class="key" style="--kc:var(--e-pot)">
+    <span class="lab">자석과 코일 사이에 작용하는 힘</span>
+    <p>다가올 때는 <b>서로 밀어내고(척력)</b>, 멀어질 때는 <b>서로 끌어당깁니다(인력).</b> 어느 쪽이든 <b>자석의 운동을 방해하는 방향</b>입니다. 그래서 자석을 움직이려면 힘을 써야 하고, 그 일이 곧 전기 에너지가 됩니다 &mdash; 에너지 보존이 여기서 성립합니다.</p>
+  </div>
+
+  <p class="stage">D · 세기 &mdash; 결국 한 가지로 모인다<span class="scope core">교재 범위</span></p>
+  <div class="defs">
+    <div class="def" style="--dc:var(--e-kin)"><span class="term">TURNS</span><h4>코일의 감은 수</h4><p><strong>많을수록</strong> 세다. 한 바퀴마다 기전력이 더해지기 때문.</p></div>
+    <div class="def" style="--dc:var(--e-kin)"><span class="term">STRENGTH</span><h4>자석의 세기</h4><p><strong>강할수록</strong> 세다. 자석 여러 개를 묶어도 같은 효과.</p></div>
+    <div class="def" style="--dc:var(--e-kin)"><span class="term">SPEED</span><h4>움직이는 속력</h4><p><strong>빠를수록</strong> 세다. 같은 변화를 짧은 시간에 만들기 때문.</p></div>
+    <div class="def" style="--dc:var(--e-kin)"><span class="term">AREA</span><h4>코일의 단면적</h4><p><strong>넓을수록</strong> 세다. 통과하는 자기력선속이 많아지므로.</p></div>
+  </div>
+  <div class="misc" style="--mc:var(--e-kin)">
+    <p class="ttl">패러데이의 발견</p>
+    <ul>
+      <li>유도 기전력은 자기력선속의 <b>시간적 변화율</b>에 비례하고, 코일의 <b>감은 수</b>에 비례한다.</li>
+      <li>위의 네 가지는 결국 <b>"자기력선속이 얼마나 빨리, 얼마나 많이 변하는가"</b> 하나로 모입니다.</li>
+      <li><b>자석의 극(N/S)은 세기와 무관합니다.</b> 극을 바꾸면 방향만 바뀝니다.</li>
+    </ul>
+  </div>
+
+  <p class="stage">E · 그래프로 읽기<span class="scope core">수능 출제</span></p>
+  <p class="lead">코일 윗면에서 자석까지의 거리 <em>h</em>를 시간에 따라 나타낸 그래프입니다. <strong>기울기가 곧 속력</strong>이고, 기울기의 <strong>부호가 방향</strong>, 기울기의 <strong>크기가 전류 세기</strong>입니다.</p>
+  <figure>
+    <svg class="fig" viewBox="0 0 700 330" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="시간에 따른 자석과 코일 사이 거리 그래프">
+      <!-- 축 -->
+      <line x1="80" y1="270" x2="640" y2="270" stroke="#C3CCD8" stroke-width="1.5"/>
+      <line x1="80" y1="270" x2="80" y2="40" stroke="#C3CCD8" stroke-width="1.5"/>
+      <text x="360" y="308" text-anchor="middle" font-size="12" fill="#5C6B80" font-family="IBM Plex Mono">시간 (s)</text>
+      <text x="34" y="155" text-anchor="middle" font-size="12" fill="#5C6B80" font-family="IBM Plex Mono" transform="rotate(-90 34 155)">h (cm)</text>
+      <!-- 눈금 -->
+      <g font-size="11" fill="#5C6B80" font-family="IBM Plex Mono" text-anchor="middle">
+        <text x="80" y="288">0</text><text x="220" y="288">2</text><text x="360" y="288">4</text>
+        <text x="500" y="288">6</text><text x="640" y="288">8</text>
+      </g>
+      <g font-size="11" fill="#5C6B80" font-family="IBM Plex Mono" text-anchor="end">
+        <text x="70" y="274">0</text><text x="70" y="182">2</text><text x="70" y="66">5</text>
+      </g>
+      <line x1="80" y1="178" x2="86" y2="178" stroke="#C3CCD8"/>
+      <line x1="80" y1="62" x2="86" y2="62" stroke="#C3CCD8"/>
+      <!-- 보조선 -->
+      <line x1="80" y1="178" x2="640" y2="178" stroke="#DFE4EA" stroke-dasharray="4 4"/>
+      <!-- 그래프 -->
+      <path d="M 80,62 L 360,178" fill="none" stroke="#3552B0" stroke-width="3" stroke-linecap="round"/>
+      <path d="M 360,178 L 500,178" fill="none" stroke="#6E7787" stroke-width="3" stroke-linecap="round"/>
+      <path d="M 500,178 L 640,62" fill="none" stroke="#B3321F" stroke-width="3" stroke-linecap="round"/>
+      <!-- 구간 라벨 -->
+      <rect x="112" y="96" width="150" height="42" fill="#EDF0F5" stroke="#3552B0" stroke-width="1"/>
+      <text x="187" y="112" text-anchor="middle" font-size="11.5" font-weight="600" fill="#3552B0" font-family="IBM Plex Sans KR">0~4초 · 다가옴</text>
+      <text x="187" y="129" text-anchor="middle" font-size="10.5" fill="#5C6B80" font-family="IBM Plex Sans KR">기울기 완만 → 전류 약함</text>
+      <rect x="378" y="198" width="128" height="42" fill="#E4E6EA" stroke="#6E7787" stroke-width="1"/>
+      <text x="442" y="214" text-anchor="middle" font-size="11.5" font-weight="600" fill="#6E7787" font-family="IBM Plex Sans KR">4~6초 · 정지</text>
+      <text x="442" y="231" text-anchor="middle" font-size="10.5" fill="#5C6B80" font-family="IBM Plex Sans KR">전류 = 0</text>
+      <rect x="470" y="80" width="160" height="42" fill="#FBEEEC" stroke="#B3321F" stroke-width="1"/>
+      <text x="550" y="96" text-anchor="middle" font-size="11.5" font-weight="600" fill="#B3321F" font-family="IBM Plex Sans KR">6~8초 · 멀어짐</text>
+      <text x="550" y="113" text-anchor="middle" font-size="10.5" fill="#5C6B80" font-family="IBM Plex Sans KR">기울기 급함 → 전류 강함</text>
+      <!-- 표시점 -->
+      <circle cx="220" cy="120" r="4.5" fill="#3552B0"/>
+      <text x="228" y="112" font-size="11" fill="#3552B0" font-weight="600" font-family="IBM Plex Mono">2초</text>
+      <circle cx="570" cy="120" r="4.5" fill="#B3321F"/>
+      <text x="578" y="112" font-size="11" fill="#B3321F" font-weight="600" font-family="IBM Plex Mono">7초</text>
+    </svg>
+    <figcaption>기울기의 <strong>부호</strong>가 바뀌면 검류계 바늘 방향이 반대, 기울기의 <strong>크기</strong>가 크면 전류가 세다. 수평 구간에서는 전류가 0이다.</figcaption>
+  </figure>
+  <div class="misc">
+    <p class="ttl">이 그래프로 판별되는 것</p>
+    <ul>
+      <li>2초와 7초 → 하나는 다가오고 하나는 멀어지므로 <b>검류계 바늘 방향은 반대.</b></li>
+      <li>5초 → 자석이 멈춰 있으므로 <b>유도 전류 0.</b> "이때 최대"는 오답.</li>
+      <li>전류 세기는 <b>7초가 2초보다 크다.</b> 6~8초 구간의 기울기가 더 급하기 때문(같은 3 cm를 2초 만에 vs 4초에 걸쳐).</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ═══════ 2. 발전기와 발전 방식 ═══════ -->
+<section id="s2" hidden>
+
+  <p class="stage">A · 발전기의 구조와 원리<span class="scope core">교재 범위</span></p>
+  <p class="lead">증기·물·바람이 <strong>터빈</strong>을 돌리면 → 터빈에 연결된 <strong>자석(회전자)</strong>이 회전 → 이를 둘러싼 <strong>코일(고정자)</strong>을 지나는 자기력선속이 변화 → 전자기 유도로 전류 발생.</p>
+  <div class="chain">
+    <div class="nd" style="--nc:var(--e-heat)"><small>열·위치·운동</small>에너지원</div>
+    <div class="ar"><b>터빈</b><span>→</span></div>
+    <div class="nd" style="--nc:var(--e-kin)"><small>운동</small>자석의 회전</div>
+    <div class="ar emi"><b>전자기<br>유도</b><span>→</span></div>
+    <div class="nd" style="--nc:var(--e-elec)"><small>전기</small>유도 전류</div>
+  </div>
+  <div class="key">
+    <span class="lab">한 문장 정의</span>
+    <p>발전기는 <b>전자기 유도를 이용해 운동 에너지를 전기 에너지로 전환하는 장치</b>입니다. 이 문장이 서술형 모범답안 그대로입니다.</p>
+  </div>
+
+  <p class="stage">B · 코일이 회전할 때 &mdash; 각도별 분석<span class="scope core">수능 출제</span></p>
+  <p class="lead">자석 사이에 코일을 놓고 돌리는 경우입니다. 핵심은 <strong>자기장이 수직으로 통과하는 코일 단면의 면적</strong>이 어떻게 변하느냐입니다.</p>
+  <div class="angles">
+    <div class="ag">
+      <span class="deg">0° → 90°</span>
+      <dl>
+        <dt>수직 통과 면적</dt><dd><strong>증가</strong></dd>
+        <dt>자기력선속</dt><dd>증가</dd>
+        <dt>유도 전류</dt><dd>자석의 자기장과 <strong>반대 방향</strong>의 자기장이 생기도록</dd>
+      </dl>
+    </div>
+    <div class="ag">
+      <span class="deg">90° → 180°</span>
+      <dl>
+        <dt>수직 통과 면적</dt><dd><strong>감소</strong></dd>
+        <dt>자기력선속</dt><dd>감소</dd>
+        <dt>유도 전류</dt><dd>자석의 자기장과 <strong>같은 방향</strong>의 자기장이 생기도록</dd>
+      </dl>
+    </div>
+  </div>
+  <div class="key">
+    <span class="lab">그래서 교류다</span>
+    <p>증가 구간과 감소 구간에서 방해하는 방향이 반대가 되므로, <b>코일이 한 바퀴 도는 동안 전류의 방향이 두 번 바뀝니다.</b> 발전기에서 나오는 것은 언제나 <b>교류</b>입니다. "전류의 세기와 방향이 일정한 유도 전류가 발생한다"는 오답.</p>
+  </div>
+
+  <p class="stage">C · 발전 방식 세 가지<span class="scope core">교재 범위</span></p>
+  <div class="scroll">
+  <table class="tbl">
+    <tr><th style="width:13%">구분</th><th style="width:19%">에너지원</th><th style="width:30%">에너지 전환</th><th>원리</th></tr>
+    <tr>
+      <td><strong>화력 발전</strong></td>
+      <td>화석 연료의 <strong>화학</strong> 에너지</td>
+      <td class="hi">화학 → 열 → 운동 → 전기</td>
+      <td>석탄·석유·천연가스를 연소할 때 나오는 열로 물을 끓여 고온·고압 증기를 만들고, 그 증기로 터빈을 돌린다.</td>
+    </tr>
+    <tr>
+      <td><strong>수력 발전</strong></td>
+      <td>물의 <strong>위치</strong> 에너지</td>
+      <td class="hi">위치 → 운동 → 전기</td>
+      <td>높은 곳의 물을 떨어뜨려 수차(터빈)를 돌린다. <strong>열 단계가 없다.</strong></td>
+    </tr>
+    <tr>
+      <td><strong>핵발전</strong></td>
+      <td>핵연료의 <strong>핵</strong>에너지</td>
+      <td class="hi">핵 → 열 → 운동 → 전기</td>
+      <td>우라늄이 <strong>핵분열</strong>할 때 나오는 열로 물을 끓이고, 그 증기로 터빈을 돌린다.</td>
+    </tr>
+  </table>
+  </div>
+  <div class="key">
+    <span class="lab">공통점과 차이점</span>
+    <ul>
+      <li><b>공통점</b> : 셋 다 터빈을 돌려 <b>전자기 유도</b>로 전기를 만든다. 마지막 두 단계(운동 → 전기)가 완전히 같다.</li>
+      <li><b>차이점</b> : <b>터빈을 돌리는 에너지원</b>이 다르다. 그것뿐이다.</li>
+      <li>화력·핵발전은 <b>물을 끓인 증기로</b>, 수력은 <b>물이 떨어지는 힘으로</b> 돌린다.</li>
+    </ul>
+  </div>
+  <div class="misc">
+    <p class="ttl">반드시 잡아야 할 오개념</p>
+    <ul>
+      <li>핵발전은 <b>핵에너지 → 열</b>입니다. "화학 에너지가 열로 전환된다"는 오답 &mdash; 화력만 화학 에너지입니다.</li>
+      <li>수력은 위치 에너지가 <b>운동 에너지를 거쳐</b> 전기가 됩니다. "위치 에너지로 직접 전기를 생산"은 오답.</li>
+      <li>핵발전에도 <b>터빈이 필요합니다.</b></li>
+      <li>화력 발전 연료(화석 연료)의 <b>근원 에너지는 태양 에너지</b>입니다. "지구 내부 에너지"는 오답. 핵연료만 핵에너지가 근원.</li>
+      <li>원자로에서는 <b>핵분열</b>, 태양 중심부에서는 <b>핵융합</b>입니다. 둘을 섞으면 오답.</li>
+      <li><b>전동기는 반대</b>입니다. 발전기 = 운동→전기, 전동기 = 전기→운동.</li>
+    </ul>
+  </div>
+
+  <p class="stage">D · 장단점<span class="scope core">교재 범위</span></p>
+  <div class="scroll">
+  <table class="tbl">
+    <tr><th style="width:12%">구분</th><th>장점</th><th>단점</th></tr>
+    <tr>
+      <td><strong>화력</strong></td>
+      <td>건설 기간이 짧고 비용이 저렴 · 지형 제약이 적어 소비지 가까이 지을 수 있음 · 전력 수요 변화에 빠르게 대처</td>
+      <td>화석 연료 매장량 한정 · <strong>이산화 탄소·미세 먼지</strong> 다량 배출 · 연료 대부분 해외 수입 의존</td>
+    </tr>
+    <tr>
+      <td><strong>수력</strong></td>
+      <td>재생 가능한 에너지 · 공해 물질을 배출하지 않음 · 홍수와 가뭄 조절 효과</td>
+      <td>지형·수량·낙차 등 <strong>부지 제약</strong> · 초기 건설 비용과 시간이 큼 · 댐 건설로 생태계 파괴·마을 침수 · 강수량이 줄면 발전 차질</td>
+    </tr>
+    <tr>
+      <td><strong>핵발전</strong></td>
+      <td>적은 연료로 많은 에너지 · 경제성 우수 · <strong>이산화 탄소를 거의 배출하지 않음</strong></td>
+      <td>초기 건설·안전관리 비용이 큼 · 우라늄 매장량도 <strong>한정적</strong> · 부지가 한정됨 · <strong>방사성 폐기물</strong> 처리 문제</td>
+    </tr>
+  </table>
+  </div>
+  <div class="misc">
+    <ul>
+      <li>"핵연료는 매장량이 <b>무한하다</b>"는 오답입니다.</li>
+      <li>핵발전이 CO₂를 거의 안 내는 것은 <b>연소가 아니기 때문</b>입니다. 대신 방사성 폐기물이 남습니다.</li>
+      <li>화력 발전 단점에 "방사성 폐기물"을 쓰면 오답 &mdash; 그건 핵발전입니다.</li>
+    </ul>
+  </div>
+
+  <p class="stage">E · 생활 속 전자기 유도<span class="scope core">교재 범위</span></p>
+  <div class="defs">
+    <div class="def" style="--dc:var(--e-kin)">
+      <span class="term">BICYCLE</span><h4>자전거 발전기</h4>
+      <p>페달을 돌리면 발전기 속 <strong>자석이 회전</strong>하며 코일에 유도 전류가 흘러 전조등이 켜집니다. 운동 → 전기.</p>
+    </div>
+    <div class="def" style="--dc:var(--e-kin)">
+      <span class="term">SHAKE</span><h4>자가발전 손전등</h4>
+      <p>흔들면 <strong>자석이 코일을 통과</strong>하며 전류가 흐릅니다. 운동 → 전기.</p>
+    </div>
+    <div class="def" style="--dc:var(--e-kin)">
+      <span class="term">SCOOTER</span><h4>발광 킥보드 바퀴</h4>
+      <p>바퀴 안 고정 코일 주위로 자석이 돌며 LED가 켜집니다. <strong>회전이 빠를수록 더 밝아집니다.</strong></p>
+    </div>
+    <div class="def" style="--dc:var(--e-elec)">
+      <span class="term">WIRELESS</span><h4>무선 충전기</h4>
+      <p>충전 패드에 <strong>교류가 흐르면</strong> 자기장이 변하고, 기기 쪽 코일에 유도 전류가 흐릅니다.</p>
+    </div>
+    <div class="def" style="--dc:var(--e-elec)">
+      <span class="term">MIC</span><h4>마이크</h4>
+      <p>소리로 <strong>진동판이 떨리면</strong> 코일을 지나는 자기장이 변해 전류가 생깁니다. 소리 → 전기. <strong>스피커는 반대</strong>라 전자기 유도가 아닙니다.</p>
+    </div>
+    <div class="def" style="--dc:var(--e-elec)">
+      <span class="term">CARD</span><h4>교통 카드 · 도난 방지</h4>
+      <p>단말기가 만든 변하는 자기장이 카드 속 코일에 전류를 유도합니다. 전기 기타·금속 탐지기도 같은 원리.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════ 3. 실험 분석 ═══════ -->
+<section id="s3" hidden>
+
+  <p class="stage">A · 기본 탐구 &mdash; 자석과 코일<span class="scope core">교재 범위</span></p>
+  <div class="scroll">
+  <table class="tbl">
+    <tr><th style="width:46%">조작</th><th>결과</th></tr>
+    <tr><td>N극을 가까이 / 멀리 한다</td><td>검류계 바늘이 <strong>서로 반대 방향</strong>으로 움직인다</td></tr>
+    <tr><td>자석이 코일 속이나 밖에서 <strong>정지</strong>해 있다</td><td>바늘이 <strong>움직이지 않는다</strong></td></tr>
+    <tr><td>자석을 <strong>빠르게</strong> 움직인다</td><td>바늘이 <strong>더 많이</strong> 움직인다</td></tr>
+    <tr><td>자석 2개를 같은 극끼리 묶어 사용한다</td><td>바늘이 <strong>더 많이</strong> 움직인다</td></tr>
+    <tr><td>자석은 두고 <strong>코일을</strong> 움직인다</td><td>바늘이 <strong>움직인다</strong> (상대 운동이면 충분)</td></tr>
+  </table>
+  </div>
+  <div class="misc" style="--mc:var(--e-rad)">
+    <p class="ttl">검류계 대신 LED를 달면</p>
+    <ul>
+      <li>LED는 <b>한쪽 방향의 전류에서만</b> 불이 켜집니다. 그래서 세기뿐 아니라 <b>방향 변화까지</b> 눈으로 확인할 수 있습니다.</li>
+      <li>N극을 아래로 넣을 때 켜졌다면, <b>S극을 위로 빼낼 때</b>도 켜집니다. 둘 다 바뀌어 방향이 같아지기 때문.</li>
+    </ul>
+  </div>
+
+  <p class="stage">B · 변인 통제 &mdash; 2028 예시문항 유형<span class="scope core">수능 출제</span></p>
+  <p class="lead">자석 개수가 다른 A·B·C를 <strong>같은 높이 h</strong>에서, <strong>N극을 아래로</strong> 하여 떨어뜨리고 유도 전류를 비교하는 실험입니다. 각 조건이 <strong>왜 그렇게 설정되었는지</strong>를 구분하는 것이 문항의 전부입니다.</p>
+  <div class="vars">
+    <div class="vr" style="--vc:var(--e-nuc)">
+      <span class="kind">조작 변인</span>
+      <h4>자석의 개수를 다르게</h4>
+      <p>개수가 늘면 <strong>자기장의 세기</strong>가 커집니다. 자기장 세기를 바꿔가며 <strong>유도 전류의 세기를 비교</strong>하려는 것 &mdash; 이 실험에서 유일하게 일부러 바꾸는 조건입니다.</p>
+    </div>
+    <div class="vr" style="--vc:var(--e-kin)">
+      <span class="kind">통제 변인</span>
+      <h4>N극을 모두 아래로</h4>
+      <p><strong>자기장의 방향</strong>을 같게 하려는 것입니다.</p>
+      <p class="warn">"자기장의 방향과 유도 전류 세기의 관계를 알아보기 위해" → <strong>오답.</strong> 극을 바꾸면 방향만 바뀌고 <strong>세기에는 영향이 없습니다.</strong></p>
+    </div>
+    <div class="vr" style="--vc:var(--e-kin)">
+      <span class="kind">통제 변인</span>
+      <h4>같은 높이 h에서 놓기</h4>
+      <p>코일을 통과하는 순간의 <strong>속력</strong>을 같게 하려는 것입니다. 같은 높이에서 자유 낙하하면 <strong>질량과 무관하게</strong> 속력이 같습니다.</p>
+      <p class="warn">"전기 에너지로 전환되는 <strong>운동 에너지의 양</strong>을 같게 하려고" → <strong>오답.</strong> 자석 개수가 다르면 질량이 다르므로 운동 에너지는 서로 다릅니다.</p>
+    </div>
+  </div>
+  <div class="key" style="--kc:var(--e-nuc)">
+    <span class="lab">가장 많이 틀리는 지점</span>
+    <p>같은 높이에서 떨어뜨렸을 때 <b>속력은 같지만 운동 에너지는 다릅니다.</b> 운동 에너지는 질량에도 비례하기 때문입니다. "속력이 같다 = 운동 에너지가 같다"로 넘어가면 걸립니다.</p>
+  </div>
+
+  <p class="stage">C · 검류계 방향 판별 &mdash; 연습 절차<span class="scope ext">확장 · 문제 풀이</span></p>
+  <p class="lead">방향을 묻는 문항은 아래 순서로 기계적으로 풀립니다.</p>
+  <div class="scroll">
+  <table class="tbl">
+    <tr><th style="width:10%" class="c">순서</th><th>할 일</th></tr>
+    <tr><td class="c"><strong>1</strong></td><td>자석의 <strong>어느 극</strong>이 코일을 향하는지 확인</td></tr>
+    <tr><td class="c"><strong>2</strong></td><td><strong>가까워지는지 멀어지는지</strong> 확인 → 자기력선속 증가/감소 판정</td></tr>
+    <tr><td class="c"><strong>3</strong></td><td>코일이 <strong>어느 극을 만들어야 방해하는지</strong> 결정 (다가오면 밀어내는 극, 멀어지면 당기는 극)</td></tr>
+    <tr><td class="c"><strong>4</strong></td><td>오른손을 감아쥐고 <strong>엄지를 그 N극 방향</strong>으로 → 네 손가락 방향이 전류 방향</td></tr>
+    <tr><td class="c"><strong>5</strong></td><td>회로를 따라가며 <strong>a→검류계→b</strong> 형태로 서술</td></tr>
+  </table>
+  </div>
+  <div class="misc">
+    <p class="ttl">진자처럼 흔들리는 자석 문제</p>
+    <ul>
+      <li>코일 위에 자석을 매달아 흔들면, <b>다가오는 구간(A→B)</b>과 <b>멀어지는 구간(B→C)</b>에서 전류 방향이 <b>반대</b>가 됩니다.</li>
+      <li>다가올 때는 <b>척력</b>, 멀어질 때는 <b>인력</b>이 작용합니다. 어느 쪽이든 자석의 운동을 <b>방해</b>하므로 진자는 점점 느려집니다.</li>
+      <li>자석이 코일 <b>바로 위를 지나는 순간</b>(최저점)에는 자기력선속의 변화율이 가장 작아 전류가 약해집니다.</li>
+    </ul>
+  </div>
+
+  <p class="stage">D · 이 단원 마무리<span class="scope core">교재 범위</span></p>
+  <div class="key" style="--kc:var(--e-chem)">
+    <span class="lab">한 문장으로</span>
+    <p>태양의 핵융합에서 온 에너지가 여러 형태를 거쳐 결국 <b>무언가를 돌리고</b>, 그 회전이 <b>전자기 유도</b>를 통해 전기가 됩니다. 태양광 발전과 연료 전지만 이 마지막 단계를 건너뛰고 <b>직접</b> 전기를 만듭니다.</p>
+  </div>
+</section>
+
+</div>
+
+<script>
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.setAttribute('aria-selected',String(x===t)));
+    ['s1','s2','s3'].forEach(id=>{document.getElementById(id).hidden=(t.dataset.t!==id);});
+    window.scrollTo({top:0,behavior:'smooth'});
+  });
+});
+</script>
+</body>
+</html>
