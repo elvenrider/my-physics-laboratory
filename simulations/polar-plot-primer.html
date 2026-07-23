@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>극좌표로 그리기 · r = f(θ)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0f1020;--panel:#171a35;--panel2:#1e2245;--line:#2b3168;
+    --txt:#e6e8ff;--txt2:#9aa0d8;--accent:#7c8cff;--sweep:#ffe066;--curve:#8b9bff;--trace:#63e6be;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--txt);font-family:'IBM Plex Sans KR',system-ui,sans-serif;}
+  #app{display:flex;height:100%;width:100%;}
+  #stage{flex:1 1 auto;position:relative;min-width:0;}
+  canvas{display:block;touch-action:none;}
+  #cv{width:100%;height:100%;}
+  #panel{flex:0 0 310px;background:var(--panel);border-left:1px solid var(--line);padding:18px 18px 26px;overflow-y:auto;}
+  h1{font-size:15px;font-weight:600;margin:0 0 2px;}
+  .sub{font-size:11.5px;color:var(--txt2);margin:0 0 16px;line-height:1.55;}
+  .grp{margin-bottom:16px;}
+  .lbl{display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;color:var(--txt2);margin-bottom:8px;}
+  .lbl b{color:var(--txt);font-family:'IBM Plex Mono';font-size:15px;}
+  .fns{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+  .fbtn{background:var(--panel2);border:1px solid var(--line);color:var(--txt2);font-family:'IBM Plex Mono';font-size:12.5px;padding:11px 6px;border-radius:8px;cursor:pointer;text-align:center;transition:.15s;}
+  .fbtn small{display:block;font-family:'IBM Plex Sans KR';font-size:9.5px;color:#6a70a8;margin-top:3px;}
+  .fbtn.on{border-color:var(--accent);color:var(--txt);background:#20264f;}
+  .fbtn.on small{color:var(--accent);}
+  input[type=range]{-webkit-appearance:none;width:100%;height:4px;border-radius:2px;background:var(--panel2);outline:none;margin:2px 0;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:var(--accent);cursor:pointer;border:3px solid var(--panel);box-shadow:0 0 0 1px var(--accent);}
+  input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--accent);cursor:pointer;border:3px solid var(--panel);}
+  input#scrub::-webkit-slider-thumb{background:var(--sweep);box-shadow:0 0 0 1px var(--sweep);}
+  input#scrub::-moz-range-thumb{background:var(--sweep);}
+  .row{display:flex;gap:8px;}
+  .btn{flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--txt);font-family:'IBM Plex Sans KR';font-size:12.5px;padding:10px;border-radius:8px;cursor:pointer;}
+  .btn:active{background:var(--line);}
+  .info{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:12px 13px;font-size:11.5px;line-height:1.7;color:var(--txt2);margin-top:6px;}
+  .info b{color:var(--txt);font-family:'IBM Plex Mono';font-weight:500;}
+  .info .k{color:var(--sweep);}
+  .hint{font-size:10.5px;color:#5a5f96;margin-top:10px;line-height:1.55;}
+  @media (max-width:860px){#app{flex-direction:column;}#panel{flex:0 0 auto;max-height:50%;border-left:none;border-top:1px solid var(--line);}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage"><canvas id="cv"></canvas></div>
+  <div id="panel">
+    <h1>극좌표로 그리기</h1>
+    <p class="sub">각도 θ마다 반지름 <b style="font-family:'IBM Plex Mono'">r = f(θ)</b> 를 정해, 그 방향으로 그 거리에 점을 찍는다. 왼쪽 보통 그래프의 높이가 오른쪽에선 <b style="color:#ffe066">원점에서의 거리</b>가 된다.</p>
+
+    <div class="grp">
+      <div class="lbl"><span>함수 r = f(θ)</span></div>
+      <div class="fns">
+        <button class="fbtn" data-fn="circle">r = 1<small>원</small></button>
+        <button class="fbtn" data-fn="sin">r = sin θ<small>원(중심 이동)</small></button>
+        <button class="fbtn" data-fn="cardioid">r = 1+cos θ<small>심장형</small></button>
+        <button class="fbtn on" data-fn="rose">r = |cos kθ|<small>장미 → 오비탈</small></button>
+      </div>
+    </div>
+
+    <div class="grp" id="kbox">
+      <div class="lbl"><span>장미 계수 <span style="font-family:'IBM Plex Mono'">k</span></span><b id="kval">1</b></div>
+      <input type="range" id="ksl" min="1" max="4" step="1" value="1">
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:#5a5f96;font-family:'IBM Plex Mono';margin-top:2px"><span>1</span><span>2</span><span>3</span><span>4</span></div>
+    </div>
+
+    <div class="grp">
+      <div class="row">
+        <button class="btn" id="bPlay">⏸ 정지</button>
+        <button class="btn" id="bReplay">↺ 다시</button>
+      </div>
+      <div class="lbl" style="margin-top:12px"><span>θ</span><b id="thval">0°</b></div>
+      <input type="range" id="scrub" min="0" max="1000" step="1" value="0">
+      <div class="lbl" style="margin-top:10px"><span>속도</span><b id="spdval">1.0×</b></div>
+      <input type="range" id="spd" min="1" max="30" step="1" value="7">
+    </div>
+
+    <div class="info" id="info"></div>
+    <p class="hint">이 단면을 φ로 한 바퀴 돌리면 3차원 구면조화함수 표면이 됩니다. r=0 이 되는 각도 = <b style="color:#e6e8ff">각 노드</b>.</p>
+  </div>
+</div>
+
+<script>
+"use strict";
+(function(){
+const TAU=Math.PI*2;
+let fn='rose', k=1, sweepPos=0, playing=true, speed=7;
+
+// r = f(θ)
+function f(t){
+  switch(fn){
+    case 'circle': return 1;
+    case 'sin': return Math.sin(t);
+    case 'cardioid': return 1+Math.cos(t);
+    case 'rose': return Math.abs(Math.cos(k*t));
+  }
+  return 0;
+}
+function rangeR(){ // [min,max]
+  let mn=1e9,mx=-1e9;
+  for(let i=0;i<=360;i++){const v=f(TAU*i/360);if(v<mn)mn=v;if(v>mx)mx=v;}
+  return [mn,mx];
+}
+
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+let W=0,H=0,DPR=1;
+function resize(){
+  DPR=Math.min(window.devicePixelRatio||1,2);
+  const r=cv.getBoundingClientRect();W=r.width;H=r.height;
+  cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize',resize);
+
+function boxes(){
+  const pad=Math.min(W,H)*0.05;
+  if(W>=H*1.15){ // 좌우 배치
+    const bw=(W-3*pad)/2;
+    return [{x:pad,y:pad,w:bw,h:H-2*pad},{x:2*pad+bw,y:pad,w:bw,h:H-2*pad}];
+  }else{ // 상하 배치
+    const bh=(H-3*pad)/2;
+    return [{x:pad,y:pad,w:W-2*pad,h:bh},{x:pad,y:2*pad+bh,w:W-2*pad,h:bh}];
+  }
+}
+
+function drawCartesian(B){
+  const [mn,mx]=rangeR();
+  const lo=Math.min(0,mn), hi=Math.max(0,mx), span=(hi-lo)||1;
+  const x0=B.x, y0=B.y+18, gw=B.w, gh=B.h-34;
+  const X=t=>x0+gw*(t/TAU);
+  const Y=r=>y0+gh*(1-(r-lo)/span);
+  // 제목
+  ctx.fillStyle='#9aa0d8';ctx.font='13px "IBM Plex Sans KR",sans-serif';
+  ctx.fillText('보통 그래프   r = f(θ)   (가로축 θ)',x0,B.y+12);
+  // r=0 축
+  ctx.strokeStyle='#3a3f78';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(x0,Y(0));ctx.lineTo(x0+gw,Y(0));ctx.stroke();
+  // θ 눈금
+  ctx.fillStyle='#5a5f96';ctx.font='10px "IBM Plex Mono",monospace';ctx.strokeStyle='#242a55';
+  for(let d=0;d<=360;d+=90){const xx=X(TAU*d/360);
+    ctx.beginPath();ctx.moveTo(xx,y0);ctx.lineTo(xx,y0+gh);ctx.stroke();
+    ctx.fillText(d+'°',xx-8,y0+gh+13);}
+  // 곡선
+  ctx.strokeStyle='#8b9bff';ctx.lineWidth=2.4;ctx.beginPath();
+  for(let i=0;i<=360;i++){const t=TAU*i/360;const xx=X(t),yy=Y(f(t));if(i===0)ctx.moveTo(xx,yy);else ctx.lineTo(xx,yy);}
+  ctx.stroke();
+  // 현재 θ 마커
+  const tc=sweepPos*TAU, rc=f(tc);
+  ctx.strokeStyle='rgba(255,224,102,0.4)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(X(tc),y0);ctx.lineTo(X(tc),y0+gh);ctx.stroke();
+  // r 높이 표시(0→r 세로선)
+  ctx.strokeStyle='#ffe066';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(X(tc),Y(0));ctx.lineTo(X(tc),Y(rc));ctx.stroke();
+  ctx.fillStyle='#ffe066';ctx.beginPath();ctx.arc(X(tc),Y(rc),4.5,0,TAU);ctx.fill();
+  ctx.fillStyle='#ffe066';ctx.font='11px "IBM Plex Mono",monospace';
+  ctx.fillText('r='+rc.toFixed(2),X(tc)+7,Y(rc)-4);
+}
+
+function drawPolar(B){
+  const [,mx]=rangeR();
+  let amax=0;for(let i=0;i<=360;i++)amax=Math.max(amax,Math.abs(f(TAU*i/360)));amax=amax||1;
+  const cx=B.x+B.w/2, cy=B.y+18+(B.h-34)/2, R=Math.min(B.w,B.h-34)/2*0.9;
+  const S=R/amax;
+  ctx.fillStyle='#9aa0d8';ctx.font='13px "IBM Plex Sans KR",sans-serif';
+  ctx.fillText('극좌표   방향 θ, 거리 r',B.x,B.y+12);
+  // 격자 원 + 스포크
+  ctx.strokeStyle='#242a55';ctx.lineWidth=1;
+  const rings=Math.max(1,Math.ceil(amax));
+  for(let g=1;g<=rings;g++){ctx.beginPath();ctx.arc(cx,cy,S*g,0,TAU);ctx.stroke();}
+  for(let d=0;d<360;d+=30){const a=d*Math.PI/180;
+    ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+R*Math.cos(a),cy-R*Math.sin(a));ctx.stroke();}
+  ctx.fillStyle='#5a5f96';ctx.font='10px "IBM Plex Mono",monospace';
+  ctx.fillText('0°',cx+R+4,cy+3);ctx.fillText('90°',cx-8,cy-R-5);
+  // 그려질 전체 곡선(옅게)
+  ctx.strokeStyle='rgba(139,155,255,0.18)';ctx.lineWidth=1.4;ctx.beginPath();
+  for(let i=0;i<=360;i++){const t=TAU*i/360,r=f(t);const xx=cx+r*S*Math.cos(t),yy=cy-r*S*Math.sin(t);if(i===0)ctx.moveTo(xx,yy);else ctx.lineTo(xx,yy);}
+  ctx.stroke();
+  // 그려진 부분(진하게)
+  const tc=sweepPos*TAU;
+  ctx.strokeStyle='#63e6be';ctx.lineWidth=2.6;ctx.beginPath();
+  const steps=Math.max(2,Math.floor(360*sweepPos));
+  for(let i=0;i<=steps;i++){const t=tc*i/steps,r=f(t);const xx=cx+r*S*Math.cos(t),yy=cy-r*S*Math.sin(t);if(i===0)ctx.moveTo(xx,yy);else ctx.lineTo(xx,yy);}
+  ctx.stroke();
+  // 반지름 팔
+  const rc=f(tc), pxp=cx+rc*S*Math.cos(tc), pyp=cy-rc*S*Math.sin(tc);
+  ctx.strokeStyle='#ffe066';ctx.lineWidth=2;ctx.setLineDash([4,3]);
+  ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(pxp,pyp);ctx.stroke();ctx.setLineDash([]);
+  // 각도 호
+  ctx.strokeStyle='rgba(255,224,102,0.5)';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.arc(cx,cy,18,0,-tc,true);ctx.stroke();
+  // 점
+  ctx.fillStyle='#ffe066';ctx.beginPath();ctx.arc(pxp,pyp,5,0,TAU);ctx.fill();
+  ctx.strokeStyle='#0f1020';ctx.lineWidth=1.5;ctx.stroke();
+}
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  const [B1,B2]=boxes();
+  drawCartesian(B1);drawPolar(B2);
+}
+
+function frame(){
+  if(playing){sweepPos+=speed/1000;if(sweepPos>=1)sweepPos=0;syncScrub();}
+  draw();
+  requestAnimationFrame(frame);
+}
+
+// UI
+const $=id=>document.getElementById(id);
+function updateInfo(){
+  let html='';
+  if(fn==='rose'){
+    const leaves=2*k, nodes=2*k;
+    const orb = k===1?'p 오비탈 단면(2잎)':k===2?'d 오비탈 단면(4잎)':k+'차 · '+leaves+'잎';
+    html='<div>잎 개수 = 2k = <b class="k">'+leaves+'</b>  ('+orb+')</div>'+
+         '<div>r=0 이 되는 각도(각 노드) = <b class="k">'+nodes+'</b>개</div>'+
+         '<div>여기서 잎이 갈라집니다.</div>';
+  }else if(fn==='sin'){
+    html='<div>r=sin θ 는 지름 1인 <b>원</b>이 됩니다.</div>'+
+         '<div>θ:180°~360°에서 r&lt;0 → 반대 방향으로 같은 원을 다시 그림.</div>';
+  }else if(fn==='cardioid'){
+    html='<div>r=1+cos θ : θ=0에서 r=2(최대), θ=180°에서 r=0.</div><div>한 점으로 모이는 <b>심장형</b>.</div>';
+  }else{
+    html='<div>r=1 : 모든 방향으로 거리 1 → <b>반지름 1 원</b>.</div>';
+  }
+  $('info').innerHTML=html;
+}
+function syncScrub(){$('scrub').value=Math.round(sweepPos*1000);$('thval').textContent=((sweepPos*360)|0)+'°';}
+function setFn(name){fn=name;document.querySelectorAll('.fbtn').forEach(b=>b.classList.toggle('on',b.dataset.fn===name));
+  $('kbox').style.display=name==='rose'?'block':'none';sweepPos=0;syncScrub();updateInfo();}
+document.querySelectorAll('.fbtn').forEach(b=>b.addEventListener('click',()=>setFn(b.dataset.fn)));
+$('ksl').addEventListener('input',e=>{k=+e.target.value;$('kval').textContent=k;sweepPos=0;syncScrub();updateInfo();});
+$('bPlay').addEventListener('click',e=>{playing=!playing;e.target.textContent=playing?'⏸ 정지':'▶ 재생';});
+$('bReplay').addEventListener('click',()=>{sweepPos=0;playing=true;$('bPlay').textContent='⏸ 정지';syncScrub();});
+$('scrub').addEventListener('input',e=>{sweepPos=+e.target.value/1000;playing=false;$('bPlay').textContent='▶ 재생';syncScrub();});
+$('spd').addEventListener('input',e=>{speed=+e.target.value;$('spdval').textContent=(speed/7).toFixed(1)+'×';});
+
+resize();updateInfo();$('bPlay').textContent='⏸ 정지';
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

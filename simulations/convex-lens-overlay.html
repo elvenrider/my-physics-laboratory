@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>볼록렌즈 결상 — 오버레이 아트로 이해하기</title>
+<link href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0d10;
+    --panel-bg: #13131a;
+    --border: #2a2a3a;
+    --accent: #e8c97a;
+    --accent2: #7ab8e8;
+    --accent3: #e87a7a;
+    --text: #d8d4c8;
+    --text-dim: #666670;
+    --ray1: #e8c97a;
+    --ray2: #7ab8e8;
+    --lens: #4a7fa5;
+    --object: #e87a7a;
+    --image: #7ae87a;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Nanum Myeongjo', serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+
+  header {
+    padding: 24px 40px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    gap: 24px;
+  }
+
+  header h1 {
+    font-size: 1.3rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--accent);
+  }
+
+  header p {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1px 1fr;
+    gap: 0;
+    padding: 0;
+    min-height: 0;
+  }
+
+  .divider {
+    background: var(--border);
+  }
+
+  .panel {
+    display: flex;
+    flex-direction: column;
+    padding: 20px 28px;
+    gap: 12px;
+  }
+
+  .panel-title {
+    font-size: 0.72rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .status-badge {
+    font-size: 0.68rem;
+    padding: 2px 8px;
+    border-radius: 2px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 400;
+  }
+
+  .status-sharp { background: #1a3a1a; color: #7ae87a; border: 1px solid #2a5a2a; }
+  .status-blur { background: #3a1a1a; color: #e87a7a; border: 1px solid #5a2a2a; }
+
+  canvas {
+    width: 100%;
+    border-radius: 4px;
+    background: #0a0a0e;
+    border: 1px solid var(--border);
+  }
+
+  .controls {
+    padding: 16px 28px 20px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .control-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .control-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    min-width: 90px;
+  }
+
+  .slider-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    flex: 1;
+    height: 3px;
+    background: var(--border);
+    outline: none;
+    border-radius: 2px;
+  }
+
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid var(--bg);
+  }
+
+  #sliderObject::-webkit-slider-thumb { background: var(--object); }
+  #sliderScreen::-webkit-slider-thumb { background: var(--accent2); }
+
+  input[type=range]::-webkit-slider-runnable-track {
+    height: 3px;
+    border-radius: 2px;
+  }
+
+  .val-display {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--text);
+    min-width: 50px;
+    text-align: right;
+  }
+
+  .formula-bar {
+    background: #0a0a0e;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    display: flex;
+    gap: 28px;
+    flex-wrap: wrap;
+  }
+
+  .formula-item span {
+    color: var(--accent);
+  }
+
+  .explanation {
+    font-size: 0.8rem;
+    line-height: 1.7;
+    color: var(--text-dim);
+    padding: 10px 0 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .explanation strong { color: var(--accent); font-weight: 700; }
+  .explanation em { color: var(--accent2); font-style: normal; }
+
+  .legend {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding-top: 6px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--text-dim);
+  }
+
+  .legend-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+  }
+  .legend-line {
+    width: 20px; height: 2px; border-radius: 1px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>볼록렌즈 결상</h1>
+  <p>광선도 ↔ 오버레이 아트로 이해하기</p>
+</header>
+
+<div class="main">
+  <!-- 왼쪽: 광선도 -->
+  <div class="panel">
+    <div class="panel-title">
+      광선도 (Ray Diagram)
+      <span class="status-badge" id="lensStatus">—</span>
+    </div>
+    <canvas id="lensCanvas" height="300"></canvas>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-line" style="background:var(--ray1)"></div> 광축 평행광선</div>
+      <div class="legend-item"><div class="legend-line" style="background:var(--ray2)"></div> 광심 통과광선</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--object)"></div> 물체</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--image)"></div> 상</div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- 오른쪽: 오버레이 아트 -->
+  <div class="panel">
+    <div class="panel-title">
+      오버레이 아트 (Overlay Art)
+      <span class="status-badge" id="overlayStatus">—</span>
+    </div>
+    <canvas id="overlayCanvas" height="300"></canvas>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-line" style="background:var(--ray1); opacity:0.5"></div> 레이어 A</div>
+      <div class="legend-item"><div class="legend-line" style="background:var(--ray2); opacity:0.5"></div> 레이어 B</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#fff"></div> 교차점 (상)</div>
+    </div>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="control-row">
+    <span class="control-label">물체 거리</span>
+    <div class="slider-wrap">
+      <input type="range" id="sliderObject" min="60" max="300" value="180" step="2">
+      <span class="val-display" id="valObject">—</span>
+    </div>
+    <span class="control-label" style="min-width:100px; color:var(--text-dim); font-size:0.68rem;">f = 100 (고정)</span>
+  </div>
+  <div class="control-row">
+    <span class="control-label">스크린 위치</span>
+    <div class="slider-wrap">
+      <input type="range" id="sliderScreen" min="20" max="350" value="100" step="2">
+      <span class="val-display" id="valScreen">—</span>
+    </div>
+    <span class="control-label" style="min-width:100px; color:var(--text-dim); font-size:0.68rem;">렌즈 기준 (우측)</span>
+  </div>
+
+  <div class="formula-bar">
+    <div class="legend-item formula-item">물체거리 u = <span id="fU">—</span></div>
+    <div class="legend-item formula-item">상거리 v (이론) = <span id="fV">—</span></div>
+    <div class="legend-item formula-item">스크린 위치 = <span id="fS">—</span></div>
+    <div class="legend-item formula-item">오차 Δ = <span id="fDelta">—</span></div>
+  </div>
+
+  <div class="explanation" id="explanation">
+    슬라이더를 조절해 보세요.
+  </div>
+</div>
+
+<script>
+const lensCanvas = document.getElementById('lensCanvas');
+const lensCtx = lensCanvas.getContext('2d');
+const overlayCanvas = document.getElementById('overlayCanvas');
+const overlayCtx = overlayCanvas.getContext('2d');
+
+const F = 100; // 초점거리 (물리 단위)
+const OBJECT_H = 40; // 물체 높이
+
+function resizeCanvases() {
+  const panels = document.querySelectorAll('.panel');
+  const w = panels[0].clientWidth - 56;
+  const h = 300;
+  [lensCanvas, overlayCanvas].forEach(c => {
+    c.width = w * window.devicePixelRatio;
+    c.height = h * window.devicePixelRatio;
+    c.style.width = w + 'px';
+    c.style.height = h + 'px';
+  });
+  drawAll();
+}
+
+function getSliderValues() {
+  const u = parseFloat(document.getElementById('sliderObject').value);
+  const s = parseFloat(document.getElementById('sliderScreen').value);
+  return { u, s };
+}
+
+// 렌즈 공식: 1/v - 1/(-u) = 1/f → 1/v = 1/f - 1/u → v = uf/(u-f)
+function calcV(u) {
+  if (Math.abs(u - F) < 1) return Infinity;
+  return (u * F) / (u - F);
+}
+
+// 배율
+function calcM(u, v) {
+  return -v / u;
+}
+
+function drawAll() {
+  const { u, s } = getSliderValues();
+  const v = calcV(u);
+  const m = (isFinite(v)) ? calcM(u, v) : null;
+  const delta = isFinite(v) ? Math.round(s - v) : null;
+  const isSharp = delta !== null && Math.abs(delta) < 6;
+
+  // 값 표시
+  document.getElementById('valObject').textContent = u + '';
+  document.getElementById('valScreen').textContent = s + '';
+  document.getElementById('fU').textContent = u + '';
+  document.getElementById('fV').textContent = isFinite(v) ? Math.round(v) + '' : (v > 0 ? '∞ (허상)' : '허상');
+  document.getElementById('fS').textContent = s + '';
+  document.getElementById('fDelta').textContent = delta !== null ? (delta > 0 ? '+' : '') + delta : '—';
+
+  const sharpText = isSharp ? '결상 ✓' : '흐릿';
+  const sharpClass = isSharp ? 'status-sharp' : 'status-blur';
+  document.getElementById('lensStatus').textContent = sharpText;
+  document.getElementById('lensStatus').className = 'status-badge ' + sharpClass;
+  document.getElementById('overlayStatus').textContent = isSharp ? '완벽히 겹침 ✓' : '어긋남 ✗';
+  document.getElementById('overlayStatus').className = 'status-badge ' + sharpClass;
+
+  // 설명 텍스트
+  const expEl = document.getElementById('explanation');
+  if (u <= F) {
+    expEl.innerHTML = `물체가 초점 안쪽(u ≤ f)에 있어 <strong>실상이 맺히지 않습니다</strong>. 오버레이: 두 레이어가 렌즈 뒤에서 만나지 않아 교차점 자체가 없습니다.`;
+  } else if (isSharp) {
+    expEl.innerHTML = `스크린이 이론적 상거리(<em>${Math.round(v)}</em>)에 정확히 놓였습니다. <strong>두 광선이 한 점에서 만납니다.</strong> 오버레이: 두 레이어가 완전히 겹쳐 <strong>선명한 상</strong>이 보입니다.`;
+  } else {
+    const dir = delta > 0 ? '너무 뒤' : '너무 앞';
+    expEl.innerHTML = `스크린이 이론 상거리(<em>${Math.round(v)}</em>)보다 <strong>${dir}(Δ=${delta})</strong>에 있습니다. 두 광선의 교차점에 스크린이 없어 <strong>흐릿한 원(퍼짐)</strong>이 생깁니다. 오버레이: 두 레이어가 어긋나 번진 상.`;
+  }
+
+  drawLensDiagram(u, v, s, m, isSharp);
+  drawOverlayArt(u, v, s, isSharp);
+}
+
+function drawLensDiagram(u, v, s, m, isSharp) {
+  const ctx = lensCtx;
+  const W = lensCanvas.width, H = lensCanvas.height;
+  const dpr = window.devicePixelRatio;
+  ctx.clearRect(0, 0, W, H);
+  ctx.save();
+  ctx.scale(dpr, dpr);
+  const w = W / dpr, h = H / dpr;
+
+  // 스케일 팩터: 물체 거리 u를 캔버스에 맞게
+  const totalRange = Math.max(u + 160, 380);
+  const scale = (w * 0.82) / totalRange;
+  const lensX = u * scale + w * 0.1; // 렌즈 x 위치
+  const axisY = h / 2;
+
+  // 배경 그리드
+  ctx.strokeStyle = '#1a1a22';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < w; x += 30) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+  }
+  for (let y = 0; y < h; y += 30) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+  }
+
+  // 광축
+  ctx.strokeStyle = '#2a2a3a';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([6, 4]);
+  ctx.beginPath(); ctx.moveTo(0, axisY); ctx.lineTo(w, axisY); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 초점 표시
+  const fX1 = lensX - F * scale;
+  const fX2 = lensX + F * scale;
+  ctx.fillStyle = '#3a3a4a';
+  ctx.font = `${10 / dpr * dpr}px JetBrains Mono`;
+  [fX1, fX2].forEach((fx, i) => {
+    ctx.beginPath();
+    ctx.arc(fx, axisY, 3, 0, Math.PI * 2);
+    ctx.fillStyle = '#4a4a6a';
+    ctx.fill();
+    ctx.fillStyle = '#4a4a6a';
+    ctx.font = '9px JetBrains Mono';
+    ctx.fillText(i === 0 ? 'F' : "F'", fx - 5, axisY + 14);
+  });
+
+  // 렌즈 그리기
+  const lensH = h * 0.75;
+  ctx.strokeStyle = '#4a7fa5';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(lensX, axisY - lensH / 2);
+  ctx.lineTo(lensX, axisY + lensH / 2);
+  ctx.stroke();
+  // 렌즈 화살표 (볼록렌즈 표시)
+  const arrowSize = 8;
+  [[axisY - lensH / 2, -1], [axisY + lensH / 2, 1]].forEach(([y, dir]) => {
+    ctx.beginPath();
+    ctx.moveTo(lensX - arrowSize, y + dir * arrowSize);
+    ctx.lineTo(lensX, y);
+    ctx.lineTo(lensX + arrowSize, y + dir * arrowSize);
+    ctx.strokeStyle = '#4a7fa5';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  });
+
+  // 물체
+  const objX = lensX - u * scale;
+  const objTopY = axisY - OBJECT_H * scale * 0.8;
+  ctx.strokeStyle = '#e87a7a';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.moveTo(objX, axisY); ctx.lineTo(objX, objTopY); ctx.stroke();
+  // 물체 화살표
+  ctx.beginPath();
+  ctx.moveTo(objX - 5, objTopY + 8);
+  ctx.lineTo(objX, objTopY);
+  ctx.lineTo(objX + 5, objTopY + 8);
+  ctx.stroke();
+
+  // 두 광선 계산
+  // 광선 1: 광축에 평행 → 렌즈 통과 후 F' 방향
+  // 광선 2: 광심 통과 → 직진
+  const objY = objTopY;
+
+  // 광선 1: 물체 끝 → 렌즈(같은 y) → F'를 통과하는 직선
+  const r1_startX = objX, r1_startY = objY;
+  const r1_midX = lensX, r1_midY = objY;
+  // F' 이후 방향: (fX2 - lensX, axisY - objY) 방향으로 연장
+  const r1_dx = fX2 - lensX, r1_dy = axisY - objY; // F'를 통과하는 방향
+  const r1_len = Math.sqrt(r1_dx * r1_dx + r1_dy * r1_dy);
+  const r1_slope = r1_dy / r1_dx;
+
+  // 광선 2: 물체 끝 → 렌즈 중심(광심, lensX, axisY) → 직진
+  const r2_startX = objX, r2_startY = objY;
+  const r2_slope = (axisY - objY) / (lensX - objX); // 광심 통과 직선
+
+  // 교차점 (실상이 맺히는 위치)
+  let imageX = null, imageY = null;
+  if (isFinite(v) && v > 0 && u > F) {
+    imageX = lensX + v * scale;
+    imageY = axisY - (m !== null ? m * OBJECT_H * scale * 0.8 : 0);
+  }
+
+  // 스크린 위치
+  const screenX = lensX + s * scale;
+
+  // 광선 1 그리기
+  ctx.strokeStyle = '#e8c97a';
+  ctx.lineWidth = 1.8;
+  ctx.globalAlpha = 0.85;
+
+  // 입사부분
+  ctx.beginPath(); ctx.moveTo(r1_startX, r1_startY); ctx.lineTo(r1_midX, r1_midY); ctx.stroke();
+  // 굴절부분 (스크린까지 또는 화면 끝까지)
+  const r1_endX = Math.min(w - 10, screenX + 60);
+  const r1_endY = r1_midY + r1_slope * (r1_endX - r1_midX);
+  ctx.beginPath(); ctx.moveTo(r1_midX, r1_midY); ctx.lineTo(r1_endX, r1_endY); ctx.stroke();
+
+  // 광선 2 그리기
+  ctx.strokeStyle = '#7ab8e8';
+  // 렌즈까지
+  ctx.beginPath(); ctx.moveTo(r2_startX, r2_startY); ctx.lineTo(lensX, axisY); ctx.stroke();
+  // 렌즈 이후: 같은 기울기 연장
+  const r2_endX = Math.min(w - 10, screenX + 60);
+  const r2_endY = axisY + r2_slope * (r2_endX - lensX);
+  ctx.beginPath(); ctx.moveTo(lensX, axisY); ctx.lineTo(r2_endX, r2_endY); ctx.stroke();
+
+  ctx.globalAlpha = 1;
+
+  // 스크린
+  ctx.strokeStyle = '#aaaacc';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([4, 3]);
+  ctx.beginPath(); ctx.moveTo(screenX, h * 0.1); ctx.lineTo(screenX, h * 0.9); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#aaaacc';
+  ctx.font = '9px JetBrains Mono';
+  ctx.fillText('스크린', screenX + 4, h * 0.12);
+
+  // 스크린 위에서 두 광선의 y 좌표 계산 → 퍼짐 원
+  if (screenX > lensX && u > F) {
+    const y1_at_screen = r1_midY + r1_slope * (screenX - r1_midX);
+    const y2_at_screen = axisY + r2_slope * (screenX - lensX);
+    const spread = Math.abs(y1_at_screen - y2_at_screen);
+    const centerY_screen = (y1_at_screen + y2_at_screen) / 2;
+
+    if (isSharp || spread < 4) {
+      // 선명한 점
+      ctx.beginPath();
+      ctx.arc(screenX, centerY_screen, 5, 0, Math.PI * 2);
+      ctx.fillStyle = '#7ae87a';
+      ctx.fill();
+      ctx.shadowColor = '#7ae87a';
+      ctx.shadowBlur = 12;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    } else {
+      // 퍼진 원
+      const r = spread / 2;
+      const grad = ctx.createRadialGradient(screenX, centerY_screen, 0, screenX, centerY_screen, r);
+      grad.addColorStop(0, 'rgba(255,220,100,0.7)');
+      grad.addColorStop(0.5, 'rgba(255,180,50,0.25)');
+      grad.addColorStop(1, 'rgba(255,150,50,0)');
+      ctx.beginPath();
+      ctx.arc(screenX, centerY_screen, r, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+    }
+  }
+
+  // 이론적 상 위치 표시 (v > 0 실상)
+  if (imageX !== null && imageX < w - 5 && imageX > lensX) {
+    ctx.strokeStyle = '#7ae87a';
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.5;
+    ctx.beginPath(); ctx.moveTo(imageX, axisY); ctx.lineTo(imageX, imageY); ctx.stroke();
+    ctx.globalAlpha = 0.3;
+    ctx.beginPath();
+    ctx.arc(imageX, imageY, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#7ae87a';
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.font = '9px JetBrains Mono';
+    ctx.fillStyle = '#7ae87a';
+    ctx.fillText("v'", imageX + 5, imageY - 5);
+  }
+
+  ctx.restore();
+}
+
+function drawOverlayArt(u, v, s, isSharp) {
+  const ctx = overlayCtx;
+  const W = overlayCanvas.width, H = overlayCanvas.height;
+  const dpr = window.devicePixelRatio;
+  ctx.clearRect(0, 0, W, H);
+  ctx.save();
+  ctx.scale(dpr, dpr);
+  const w = W / dpr, h = H / dpr;
+
+  const cx = w / 2, cy = h / 2;
+
+  // 배경
+  ctx.fillStyle = '#0a0a0e';
+  ctx.fillRect(0, 0, w, h);
+
+  // 기름종이 질감 배경 그리드
+  ctx.strokeStyle = '#111118';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < w; x += 20) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+  }
+  for (let y = 0; y < h; y += 20) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+  }
+
+  // 오버레이 아트: 두 레이어의 화살표/별 그림이 얼마나 겹치는지
+  // delta = s - v (스크린 - 이론 상거리)
+  let delta = 0;
+  let virtualImage = false;
+  if (!isFinite(v) || v <= 0 || u <= F) {
+    virtualImage = true;
+    delta = 80; // 아예 안 맺힘 → 최대 어긋남
+  } else {
+    delta = s - v;
+  }
+
+  // 어긋남 비율 → 오버레이 시각적 어긋남 거리
+  const maxShift = 55;
+  const shiftRaw = Math.max(-maxShift, Math.min(maxShift, delta * 0.55));
+  const shift = virtualImage ? maxShift : shiftRaw;
+
+  // 두 레이어 그리기: 별/화살표 모양
+  function drawLayer(offsetX, offsetY, color, alpha) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(cx + offsetX, cy + offsetY);
+
+    // 중앙 별 (5각)
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.fillStyle = color + '18';
+    const R = 32, r2 = 14, pts = 5;
+    ctx.beginPath();
+    for (let i = 0; i < pts * 2; i++) {
+      const ang = (i * Math.PI / pts) - Math.PI / 2;
+      const rad = i % 2 === 0 ? R : r2;
+      if (i === 0) ctx.moveTo(Math.cos(ang) * rad, Math.sin(ang) * rad);
+      else ctx.lineTo(Math.cos(ang) * rad, Math.sin(ang) * rad);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // 십자선
+    ctx.beginPath();
+    ctx.moveTo(-48, 0); ctx.lineTo(48, 0);
+    ctx.moveTo(0, -48); ctx.lineTo(0, 48);
+    ctx.strokeStyle = color + '55';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // 바깥 원
+    ctx.beginPath();
+    ctx.arc(0, 0, 46, 0, Math.PI * 2);
+    ctx.strokeStyle = color + '40';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  // 레이어 A (황색계)
+  drawLayer(-shift * 0.5, shift * 0.3, '#e8c97a', 0.75);
+  // 레이어 B (청색계)
+  drawLayer(shift * 0.5, -shift * 0.3, '#7ab8e8', 0.75);
+
+  // 겹친 부분: 두 레이어의 합성 (교차점 강조)
+  const overlap = Math.max(0, 1 - Math.abs(shift) / maxShift);
+
+  if (overlap > 0.05) {
+    ctx.save();
+    ctx.globalAlpha = overlap * 0.9;
+    ctx.translate(cx, cy);
+    // 합성 별 (흰색 → 선명)
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.fillStyle = `rgba(255,255,255,${overlap * 0.15})`;
+    const R = 32, r2 = 14, pts = 5;
+    ctx.beginPath();
+    for (let i = 0; i < pts * 2; i++) {
+      const ang = (i * Math.PI / pts) - Math.PI / 2;
+      const rad = i % 2 === 0 ? R : r2;
+      if (i === 0) ctx.moveTo(Math.cos(ang) * rad, Math.sin(ang) * rad);
+      else ctx.lineTo(Math.cos(ang) * rad, Math.sin(ang) * rad);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // 중심 글로우
+    const glowR = 20 * overlap;
+    const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, glowR);
+    glow.addColorStop(0, `rgba(255,255,220,${overlap * 0.9})`);
+    glow.addColorStop(0.5, `rgba(255,220,100,${overlap * 0.4})`);
+    glow.addColorStop(1, 'rgba(255,200,50,0)');
+    ctx.beginPath();
+    ctx.arc(0, 0, glowR, 0, Math.PI * 2);
+    ctx.fillStyle = glow;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // 어긋남 정도 텍스트
+  ctx.fillStyle = '#3a3a4a';
+  ctx.font = '9px JetBrains Mono';
+  ctx.fillText(virtualImage ? '실상 없음 — 레이어 교차점 없음' :
+    (isSharp ? '완전 겹침 — 선명한 상' : `어긋남 Δ=${Math.round(delta)} — 번진 상`),
+    12, h - 14);
+
+  // 어긋남 화살표 가이드
+  if (!isSharp && !virtualImage && Math.abs(shift) > 5) {
+    ctx.save();
+    ctx.globalAlpha = 0.35;
+    ctx.strokeStyle = '#aaaacc';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(cx - shift * 0.5, cy + shift * 0.3);
+    ctx.lineTo(cx + shift * 0.5, cy - shift * 0.3);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+// 이벤트
+document.getElementById('sliderObject').addEventListener('input', drawAll);
+document.getElementById('sliderScreen').addEventListener('input', drawAll);
+
+window.addEventListener('resize', resizeCanvases);
+resizeCanvases();
+</script>
+</body>
+</html>

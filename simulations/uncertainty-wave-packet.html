@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>위치-운동량 불확정성 시뮬레이션</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#EEF0F2; --panel:#FFFFFF; --border:#DADDE1; --ink:#1F242A; --muted:#697079;
+    --blue:#2563A8; --amber:#C2700F; --lock:#2E7D5B; --bracket:#565E66;
+    --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+    --sans:'Apple SD Gothic Neo','Pretendard','Noto Sans KR','Malgun Gothic',
+           system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#14171B; --panel:#1B1F24; --border:#2A2F36; --ink:#E6E9EC; --muted:#99A1A9;
+      --blue:#5AA0E0; --amber:#E1923A; --lock:#4FB488; --bracket:#8A929B;
+    }
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);
+    line-height:1.6;-webkit-font-smoothing:antialiased;padding:24px 16px}
+  .wrap{max-width:760px;margin:0 auto}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+  h1{font-size:23px;font-weight:600;letter-spacing:-.01em;margin-bottom:6px}
+  .lede{font-size:14px;color:var(--muted);margin-bottom:20px}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;
+    padding:12px 14px 8px;margin-bottom:12px;position:relative}
+  .panel-head{display:flex;align-items:center;gap:7px;font-size:13px;
+    font-weight:500;margin-bottom:2px}
+  .dot{width:9px;height:9px;border-radius:50%;flex:none}
+  .dot.b{background:var(--blue)} .dot.a{background:var(--amber)}
+  .panel-head .eq{font-family:var(--mono);color:var(--muted);font-weight:400;font-size:12px}
+  canvas{width:100%;display:block}
+  .controls{background:var(--panel);border:1px solid var(--border);border-radius:12px;
+    padding:16px 18px;margin-bottom:12px}
+  .ctrl{display:grid;grid-template-columns:120px 1fr 78px;align-items:center;gap:12px;
+    margin-bottom:14px}
+  .ctrl:last-child{margin-bottom:0}
+  .ctrl label{font-size:14px;font-weight:500}
+  .ctrl .hint{font-size:11px;color:var(--muted);display:block;font-weight:400;margin-top:1px}
+  .ctrl output{font-family:var(--mono);font-size:13px;text-align:right;color:var(--muted)}
+  input[type=range]{width:100%;accent-color:var(--blue);height:4px}
+  .readout{display:grid;grid-template-columns:1fr 1fr 1.25fr;gap:10px;margin-bottom:14px}
+  .cell{background:var(--panel);border:1px solid var(--border);border-radius:12px;
+    padding:12px 14px;text-align:center}
+  .cell .k{font-size:12px;color:var(--muted);margin-bottom:3px}
+  .cell .v{font-family:var(--mono);font-size:22px;font-weight:500}
+  .cell.b .v{color:var(--blue)} .cell.a .v{color:var(--amber)}
+  .cell.prod{position:relative}
+  .cell.prod .v{color:var(--lock)}
+  .lockpill{display:inline-flex;align-items:center;gap:4px;font-size:11px;
+    font-family:var(--sans);color:var(--lock);margin-top:4px;font-weight:500}
+  .insight{font-size:13.5px;color:var(--ink);background:var(--panel);
+    border:1px solid var(--border);border-left:3px solid var(--blue);
+    border-radius:0 8px 8px 0;padding:11px 14px;margin-bottom:14px}
+  .foot{font-size:12px;color:var(--muted);line-height:1.7}
+  .foot code{font-family:var(--mono);font-size:11.5px}
+  .reset{font-family:var(--sans);font-size:12px;color:var(--muted);background:none;
+    border:1px solid var(--border);border-radius:7px;padding:4px 10px;cursor:pointer}
+  .reset:hover{color:var(--ink);border-color:var(--bracket)}
+  .toprow{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:16px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="toprow">
+    <div>
+      <div class="eyebrow">양자역학 · 불확정성 원리</div>
+      <h1>파동 다발과 운동량 스펙트럼</h1>
+      <div class="lede">다발을 좁히면 위치는 또렷해지지만 운동량이 퍼집니다. 그 반대도 마찬가지죠.</div>
+    </div>
+    <button class="reset" id="reset">초기화</button>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><span class="dot b"></span>위치 공간 <span class="eq">ψ(x) = 포락선 × 반송파</span></div>
+    <canvas id="posCanvas"></canvas>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><span class="dot a"></span>운동량 공간 <span class="eq">|φ(p)|² &nbsp;(파장 = 운동량)</span></div>
+    <canvas id="momCanvas"></canvas>
+  </div>
+
+  <div class="controls">
+    <div class="ctrl">
+      <label>다발 폭 <span class="hint">위치의 퍼짐 σₓ</span></label>
+      <input type="range" id="sigma" min="0.4" max="3.0" step="0.01" value="1.2">
+      <output id="sigmaOut">1.20</output>
+    </div>
+    <div class="ctrl">
+      <label>중심 운동량 <span class="hint">반송파의 파수 p₀</span></label>
+      <input type="range" id="k0" min="2" max="8" step="0.05" value="4.0">
+      <output id="k0Out">4.00</output>
+    </div>
+  </div>
+
+  <div class="readout">
+    <div class="cell b">
+      <div class="k">위치 불확정성 Δx</div>
+      <div class="v" id="dxv">1.20</div>
+    </div>
+    <div class="cell a">
+      <div class="k">운동량 불확정성 Δp</div>
+      <div class="v" id="dpv">0.42</div>
+    </div>
+    <div class="cell prod">
+      <div class="k">Δx · Δp</div>
+      <div class="v" id="prodv">0.50 ℏ</div>
+      <span class="lockpill">🔒 ℏ/2 최솟값에 고정</span>
+    </div>
+  </div>
+
+  <div class="insight" id="insight"></div>
+
+  <div class="foot">
+    가우스 다발은 푸리에 변환해도 가우스라서 <code>σₓ · σₚ = ℏ/2</code> 가 정확히 성립합니다 —
+    불확정성을 가장 작게 만드는 특별한 상태죠. 다른 모양의 다발이라면 곱은 항상 이보다 <em>커집니다</em>.
+    단위는 ℏ = 1 인 자연단위입니다.
+  </div>
+</div>
+
+<script>
+(function(){
+  const X_MIN=-12, X_MAX=12, K_MIN=-2, K_MAX=14;
+  const posC=document.getElementById('posCanvas');
+  const momC=document.getElementById('momCanvas');
+  const pctx=posC.getContext('2d');
+  const mctx=momC.getContext('2d');
+  const POS_H=210, MOM_H=190;
+
+  const sigmaEl=document.getElementById('sigma');
+  const k0El=document.getElementById('k0');
+
+  function pal(){
+    const dark=matchMedia('(prefers-color-scheme: dark)').matches;
+    return dark
+      ? {grid:'#262C34',axis:'#3A424B',ink:'#E6E9EC',muted:'#99A1A9',
+         blue:'#5AA0E0',blueFill:'rgba(90,160,224,.16)',
+         amber:'#E1923A',amberFill:'rgba(225,146,58,.18)',
+         env:'#5AA0E0',bracket:'#8A929B'}
+      : {grid:'#EDEFF2',axis:'#C7CCD2',ink:'#1F242A',muted:'#697079',
+         blue:'#2563A8',blueFill:'rgba(37,99,168,.12)',
+         amber:'#C2700F',amberFill:'rgba(194,112,15,.14)',
+         env:'#2563A8',bracket:'#565E66'};
+  }
+
+  function setupCanvas(c,cssH){
+    const dpr=window.devicePixelRatio||1;
+    const w=c.clientWidth;
+    c.width=w*dpr; c.height=cssH*dpr;
+    c.style.height=cssH+'px';
+    const ctx=c.getContext('2d');
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    return {w,h:cssH};
+  }
+
+  function drawGrid(ctx,w,h,P,lines){
+    ctx.strokeStyle=P.grid; ctx.lineWidth=1;
+    for(let i=1;i<lines;i++){
+      const x=w*i/lines;
+      ctx.beginPath(); ctx.moveTo(x,8); ctx.lineTo(x,h-8); ctx.stroke();
+    }
+  }
+
+  function renderPos(sigma,k0,P){
+    const {w,h}=setupCanvas(posC,POS_H);
+    const ctx=pctx;
+    ctx.clearRect(0,0,w,h);
+    drawGrid(ctx,w,h,P,8);
+    const yc=h*0.46, Amp=h*0.36;
+    const xPx=x=>(x-X_MIN)/(X_MAX-X_MIN)*w;
+    // zero axis
+    ctx.strokeStyle=P.axis; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(0,yc); ctx.lineTo(w,yc); ctx.stroke();
+    // envelope (dashed, both signs)
+    const env=x=>Math.exp(-(x*x)/(4*sigma*sigma));
+    ctx.setLineDash([4,4]); ctx.strokeStyle=P.env; ctx.globalAlpha=0.45; ctx.lineWidth=1.25;
+    for(const s of [1,-1]){
+      ctx.beginPath();
+      for(let px=0;px<=w;px++){
+        const x=X_MIN+(X_MAX-X_MIN)*px/w;
+        const y=yc - s*env(x)*Amp;
+        px===0?ctx.moveTo(px,y):ctx.lineTo(px,y);
+      }
+      ctx.stroke();
+    }
+    ctx.setLineDash([]); ctx.globalAlpha=1;
+    // wave packet ψ(x)
+    ctx.strokeStyle=P.blue; ctx.lineWidth=2; ctx.lineJoin='round';
+    ctx.beginPath();
+    for(let px=0;px<=w;px++){
+      const x=X_MIN+(X_MAX-X_MIN)*px/w;
+      const psi=env(x)*Math.cos(k0*x);
+      const y=yc - psi*Amp;
+      px===0?ctx.moveTo(px,y):ctx.lineTo(px,y);
+    }
+    ctx.stroke();
+    // Δx bracket [-sigma, sigma]
+    const by=h-14, x1=xPx(-sigma), x2=xPx(sigma);
+    ctx.strokeStyle=P.bracket; ctx.lineWidth=1.25;
+    ctx.beginPath();
+    ctx.moveTo(x1,by-5); ctx.lineTo(x1,by); ctx.lineTo(x2,by); ctx.lineTo(x2,by-5);
+    ctx.stroke();
+    ctx.fillStyle=P.bracket; ctx.font="12px "+getComputedStyle(document.body).fontFamily;
+    ctx.textAlign='center';
+    ctx.fillText('Δx', (x1+x2)/2, by-7);
+    // x label
+    ctx.fillStyle=P.muted; ctx.textAlign='right';
+    ctx.fillText('위치 x →', w-6, 16);
+  }
+
+  function renderMom(sigma,k0,P){
+    const {w,h}=setupCanvas(momC,MOM_H);
+    const ctx=mctx;
+    ctx.clearRect(0,0,w,h);
+    drawGrid(ctx,w,h,P,8);
+    const yb=h*0.84, Hs=h*0.66;
+    const kPx=k=>(k-K_MIN)/(K_MAX-K_MIN)*w;
+    const sk=1/(2*sigma);                 // momentum width
+    const g=k=>Math.exp(-2*sigma*sigma*(k-k0)*(k-k0)); // peak-normalized
+    // baseline
+    ctx.strokeStyle=P.axis; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(0,yb); ctx.lineTo(w,yb); ctx.stroke();
+    // center line at p0
+    ctx.setLineDash([3,4]); ctx.strokeStyle=P.amber; ctx.globalAlpha=0.5; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(kPx(k0),yb); ctx.lineTo(kPx(k0),yb-Hs); ctx.stroke();
+    ctx.setLineDash([]); ctx.globalAlpha=1;
+    // filled gaussian
+    ctx.beginPath();
+    ctx.moveTo(0,yb);
+    for(let px=0;px<=w;px++){
+      const k=K_MIN+(K_MAX-K_MIN)*px/w;
+      ctx.lineTo(px, yb-g(k)*Hs);
+    }
+    ctx.lineTo(w,yb); ctx.closePath();
+    ctx.fillStyle=P.amberFill; ctx.fill();
+    // outline
+    ctx.strokeStyle=P.amber; ctx.lineWidth=2; ctx.beginPath();
+    for(let px=0;px<=w;px++){
+      const k=K_MIN+(K_MAX-K_MIN)*px/w;
+      const y=yb-g(k)*Hs;
+      px===0?ctx.moveTo(px,y):ctx.lineTo(px,y);
+    }
+    ctx.stroke();
+    // Δp bracket [k0-sk, k0+sk]
+    const by=yb+11, x1=kPx(k0-sk), x2=kPx(k0+sk);
+    ctx.strokeStyle=P.bracket; ctx.lineWidth=1.25;
+    ctx.beginPath();
+    ctx.moveTo(x1,by-5); ctx.lineTo(x1,by); ctx.lineTo(x2,by); ctx.lineTo(x2,by-5);
+    ctx.stroke();
+    ctx.fillStyle=P.bracket; ctx.font="12px "+getComputedStyle(document.body).fontFamily;
+    ctx.textAlign='center';
+    ctx.fillText('Δp', (x1+x2)/2, by+13);
+    // p label
+    ctx.fillStyle=P.muted; ctx.textAlign='right';
+    ctx.fillText('운동량 p →', w-6, 16);
+  }
+
+  function update(){
+    const sigma=parseFloat(sigmaEl.value);
+    const k0=parseFloat(k0El.value);
+    const P=pal();
+    renderPos(sigma,k0,P);
+    renderMom(sigma,k0,P);
+    const dx=sigma, dp=1/(2*sigma), prod=dx*dp;
+    document.getElementById('sigmaOut').textContent=sigma.toFixed(2);
+    document.getElementById('k0Out').textContent=k0.toFixed(2);
+    document.getElementById('dxv').textContent=dx.toFixed(2);
+    document.getElementById('dpv').textContent=dp.toFixed(2);
+    document.getElementById('prodv').textContent=prod.toFixed(2)+' ℏ';
+    let msg;
+    if(sigma<=0.85) msg='다발이 좁습니다 → 위치는 또렷하지만 운동량 스펙트럼이 넓게 퍼졌습니다.';
+    else if(sigma>=2.15) msg='다발이 넓습니다 → 운동량은 또렷하지만 위치가 넓게 퍼졌습니다.';
+    else msg='위치와 운동량의 퍼짐이 균형을 이룬 상태입니다.';
+    document.getElementById('insight').textContent=msg+' 두 폭의 곱은 언제나 ℏ/2에 고정됩니다.';
+  }
+
+  sigmaEl.addEventListener('input',update);
+  k0El.addEventListener('input',update);
+  document.getElementById('reset').addEventListener('click',()=>{
+    sigmaEl.value=1.2; k0El.value=4.0; update();
+  });
+  window.addEventListener('resize',update);
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change',update);
+  update();
+})();
+</script>
+</body>
+</html>

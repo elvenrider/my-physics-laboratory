@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>수소 오비탈 ψₙₗₘ = Rₙₗ(r)·Yₗᵐ(θ,φ)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0f1020;--panel:#171a35;--panel2:#1e2245;--line:#2b3168;
+    --txt:#e6e8ff;--txt2:#9aa0d8;--accent:#7c8cff;--sweep:#ffe066;--pos:#ff6b9d;--neg:#5c9cff;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);
+    color:var(--txt);font-family:'IBM Plex Sans KR',system-ui,sans-serif;}
+  #app{display:flex;height:100%;width:100%;}
+  #stage{flex:1 1 auto;position:relative;min-width:0;background:radial-gradient(circle at 50% 45%,#14163a,#0d0e1c 70%);}
+  canvas{display:block;touch-action:none;}
+  #cv{width:100%;height:100%;}
+  #hud{position:absolute;top:14px;left:16px;pointer-events:none;font-family:'IBM Plex Mono',monospace;}
+  #hud .title{font-family:'IBM Plex Sans KR';font-size:13px;color:var(--txt2);letter-spacing:.5px;}
+  #hud .yf{font-size:25px;font-weight:500;margin-top:2px;}
+  #hud .yf sub{font-size:.55em;}
+  #hud .nm{font-size:13px;color:var(--accent);margin-top:5px;}
+  #hud .ctx{font-size:12px;color:var(--sweep);margin-top:6px;min-height:15px;}
+  #panel{flex:0 0 322px;background:var(--panel);border-left:1px solid var(--line);
+    padding:16px 18px 26px;overflow-y:auto;}
+  h1{font-size:15px;font-weight:600;margin:0 0 2px;}
+  .sub{font-size:11.5px;color:var(--txt2);margin:0 0 14px;line-height:1.5;}
+  .grp{margin-bottom:14px;}
+  .lbl{display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;color:var(--txt2);margin-bottom:6px;}
+  .lbl b{color:var(--txt);font-family:'IBM Plex Mono';font-size:15px;}
+  input[type=range]{-webkit-appearance:none;width:100%;height:4px;border-radius:2px;background:var(--panel2);outline:none;margin:2px 0;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:var(--accent);cursor:pointer;border:3px solid var(--panel);box-shadow:0 0 0 1px var(--accent);}
+  input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--accent);cursor:pointer;border:3px solid var(--panel);}
+  input#scrub::-webkit-slider-thumb{background:var(--sweep);box-shadow:0 0 0 1px var(--sweep);}
+  input#scrub::-moz-range-thumb{background:var(--sweep);}
+  .ticks{display:flex;justify-content:space-between;font-size:10px;color:#5a5f96;font-family:'IBM Plex Mono';margin-top:2px;}
+  .tabs{display:flex;background:var(--panel2);border-radius:9px;padding:3px;gap:3px;margin-bottom:14px;}
+  .tabs button{flex:1;border:none;background:transparent;color:var(--txt2);font-family:'IBM Plex Sans KR';font-size:11.5px;padding:9px 3px;border-radius:7px;cursor:pointer;transition:.15s;}
+  .tabs button.on{background:var(--accent);color:#0f1020;font-weight:600;}
+  .toggle{display:flex;background:var(--panel2);border-radius:9px;padding:3px;gap:3px;}
+  .toggle button{flex:1;border:none;background:transparent;color:var(--txt2);font-family:'IBM Plex Sans KR';font-size:12px;padding:8px 4px;border-radius:7px;cursor:pointer;transition:.15s;}
+  .toggle button.on{background:var(--accent);color:#0f1020;font-weight:600;}
+  .toggle.sweept button.on{background:var(--sweep);color:#0f1020;}
+  .row{display:flex;gap:8px;}
+  .btn{flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--txt);font-family:'IBM Plex Sans KR';font-size:12.5px;padding:9px;border-radius:8px;cursor:pointer;}
+  .btn:active{background:var(--line);}
+  .plotbox{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:9px 8px 5px;}
+  #mc{width:100%;height:170px;display:block;}
+  .mleg{display:flex;gap:12px;flex-wrap:wrap;font-size:9.5px;color:var(--txt2);font-family:'IBM Plex Mono';padding:3px 4px 0;}
+  .mleg i{width:14px;height:2px;display:inline-block;vertical-align:middle;margin-right:4px;}
+  .info{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:11px 13px;font-size:11.5px;line-height:1.7;color:var(--txt2);margin-top:14px;}
+  .info b{color:var(--txt);font-family:'IBM Plex Mono';font-weight:500;}
+  .info .k{color:var(--accent);}
+  .info .tot{color:#ffe066;}
+  .hint{font-size:10.5px;color:#5a5f96;margin-top:9px;line-height:1.5;}
+  .loading{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:var(--txt2);font-size:13px;font-family:'IBM Plex Mono';display:none;}
+  @media (max-width:880px){#app{flex-direction:column;}#panel{flex:0 0 auto;max-height:56%;border-left:none;border-top:1px solid var(--line);}#hud .yf{font-size:20px;}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage">
+    <canvas id="cv"></canvas>
+    <div id="hud">
+      <div class="title">수소 오비탈 · ψ = Rₙₗ(r)·Yₗᵐ(θ,φ)</div>
+      <div class="yf" id="yf"></div>
+      <div class="nm" id="orbname"></div>
+      <div class="ctx" id="ctx"></div>
+    </div>
+    <div class="loading" id="loading">전자구름 생성 중…</div>
+  </div>
+
+  <div id="panel">
+    <h1>수소 원자 파동함수</h1>
+    <p class="sub">각부 <b style="font-family:'IBM Plex Mono'">Yₗᵐ</b>이 모양을, 동경부 <b style="font-family:'IBM Plex Mono'">Rₙₗ</b>(라게르)이 껍질을 결정. 길이 단위 <b style="font-family:'IBM Plex Mono'">a₀</b>.</p>
+
+    <div class="tabs">
+      <button id="tab1" class="on">각 표면 (그리기)</button>
+      <button id="tab2">전자구름</button>
+      <button id="tab3">단면</button>
+    </div>
+
+    <div class="grp">
+      <div class="lbl"><span>주양자수 <span style="font-family:'IBM Plex Mono'">n</span></span><b id="nval">3</b></div>
+      <input type="range" id="nsl" min="1" max="6" step="1" value="3">
+      <div class="ticks"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span></div>
+    </div>
+    <div class="grp">
+      <div class="lbl"><span>방위양자수 <span style="font-family:'IBM Plex Mono'">l</span></span><b id="lval">2</b></div>
+      <input type="range" id="lsl" min="0" max="2" step="1" value="2">
+      <div class="ticks" id="lticks"></div>
+    </div>
+    <div class="grp">
+      <div class="lbl"><span>자기양자수 <span style="font-family:'IBM Plex Mono'">m</span></span><b id="mval">1</b></div>
+      <input type="range" id="msl" min="-2" max="2" step="1" value="1">
+      <div class="ticks" id="mticks"></div>
+    </div>
+
+    <div id="ctrlAngular">
+      <div class="grp">
+        <div class="lbl"><span>훑는 변수</span></div>
+        <div class="toggle sweept">
+          <button id="swPhi" class="on">φ 스윕·선반</button>
+          <button id="swTheta">θ 스윕·고리</button>
+        </div>
+      </div>
+      <div class="grp">
+        <div class="row">
+          <button class="btn" id="bPlay">⏸ 정지</button>
+          <button class="btn" id="bReplay">↺ 다시</button>
+        </div>
+        <div class="lbl" style="margin-top:11px"><span id="scrublab">φ</span><b id="scrubval">0°</b></div>
+        <input type="range" id="scrub" min="0" max="1000" step="1" value="0">
+      </div>
+    </div>
+
+    <div id="ctrlSlice" style="display:none">
+      <div class="grp">
+        <div class="toggle" style="margin-bottom:10px">
+          <button id="dPsi" class="on">ψ (부호)</button>
+          <button id="dDens">|ψ|²</button>
+        </div>
+        <div class="lbl"><span>단면 방위각 φ₀</span><b id="azval">0°</b></div>
+        <input type="range" id="azsl" min="0" max="360" step="2" value="0">
+      </div>
+    </div>
+
+    <div id="ctrlCloud" style="display:none">
+      <div class="grp">
+        <div class="lbl"><span>노드 확인 슬라이스</span></div>
+        <div class="toggle" style="margin-bottom:10px">
+          <button id="sliceOff" class="on">전체</button>
+          <button id="sliceOnBtn">슬라이스</button>
+        </div>
+        <div id="sliceCtl" style="display:none">
+          <div class="lbl"><span>슬라이스 모양</span></div>
+          <div class="toggle" style="margin-bottom:10px">
+            <button id="shPlane" class="on">평면</button>
+            <button id="shShell">구껍질</button>
+          </div>
+          <div id="axisBox">
+            <div class="lbl"><span>자르는 축</span></div>
+            <div class="toggle" style="margin-bottom:10px">
+              <button id="axX">x</button><button id="axY">y</button><button id="axZ" class="on">z</button>
+            </div>
+          </div>
+          <div class="lbl"><span id="sliceposlab">슬라이스 위치</span><b id="scval">0 a₀</b></div>
+          <input type="range" id="slicePos" min="-1000" max="1000" step="1" value="0">
+        </div>
+      </div>
+    </div>
+
+    <div class="plotbox">
+      <canvas id="mc"></canvas>
+      <div class="mleg" id="mleg"></div>
+    </div>
+
+    <div class="info" id="info"></div>
+    <p class="hint" id="hint"></p>
+  </div>
+</div>
+
+<script>
+"use strict";
+(function(){
+const TAU=Math.PI*2;
+let n=3,l=2,m=1,tab='angular';
+let sweepAxis='phi',sweepPos=0,playing=true,speed=8;
+let densMode='psi',az=0;
+let sliceOn=false,sliceR=0,sliceAxis='z',sliceShape='plane';
+let angleX=-0.35,angleY=0.6,zoom=1;
+
+// ============ 수학 ============
+function fact(k){let r=1;for(let i=2;i<=k;i++)r*=i;return r;}
+function laguerre(k,a,x){if(k===0)return 1;let Lm=1,Lk=1+a-x;for(let i=1;i<k;i++){const Lp=((2*i+1+a-x)*Lk-(i+a)*Lm)/(i+1);Lm=Lk;Lk=Lp;}return Lk;}
+function Rnl(r){const rho=2*r/n;const norm=Math.sqrt(Math.pow(2/n,3)*fact(n-l-1)/(2*n*fact(n+l)));return norm*Math.exp(-rho/2)*Math.pow(rho,l)*laguerre(n-l-1,2*l+1,rho);}
+function plm(L,M,x){let pmm=1;if(M>0){const s=Math.sqrt(Math.max(0,(1-x)*(1+x)));let f=1;for(let i=1;i<=M;i++){pmm*=-f*s;f+=2;}}if(L===M)return pmm;let p1=x*(2*M+1)*pmm;if(L===M+1)return p1;let pll=0;for(let ll=M+2;ll<=L;ll++){pll=((2*ll-1)*x*p1-(ll+M-1)*pmm)/(ll-M);pmm=p1;p1=pll;}return pll;}
+function normLeg(L,M){return Math.sqrt((2*L+1)/(4*Math.PI)*fact(L-M)/fact(L+M));}
+function thetaFactor(th){const am=Math.abs(m);return (am===0?1:Math.SQRT2)*normLeg(l,am)*plm(l,am,Math.cos(th));}
+function phiFactor(ph){if(m>0)return Math.cos(m*ph);if(m<0)return Math.sin(-m*ph);return 1;}
+function Yreal(th,ph){return thetaFactor(th)*phiFactor(ph);}
+function psi(r,th,ph){return Rnl(r)*Yreal(th,ph);}
+
+// ============ 각 표면 기하 ============
+const NT=48,NP=96;
+let VX,VY,VZ,VS,maxRang=1;
+function buildAngular(){
+  const nv=(NT+1)*(NP+1);
+  VX=new Float32Array(nv);VY=new Float32Array(nv);VZ=new Float32Array(nv);VS=new Float32Array(nv);
+  maxRang=1e-6;let idx=0;
+  for(let it=0;it<=NT;it++){
+    const th=Math.PI*it/NT,ct=Math.cos(th),st=Math.sin(th),Th=thetaFactor(th);
+    for(let ip=0;ip<=NP;ip++){
+      const ph=TAU*ip/NP,y=Th*phiFactor(ph),r=Math.abs(y);
+      VX[idx]=r*st*Math.cos(ph);VY[idx]=r*st*Math.sin(ph);VZ[idx]=r*ct;VS[idx]=y>=0?1:-1;
+      if(r>maxRang)maxRang=r;idx++;
+    }
+  }
+}
+
+// ============ 동경 ============
+let L_ext=10,radNodes=[],rGrid,cdf;
+function buildRadial(){
+  const Rbig=4*n*n+45,Nr=800,dr=Rbig/Nr;
+  rGrid=new Float64Array(Nr+1);cdf=new Float64Array(Nr+1);
+  let c=0,prevR=Rnl(dr);radNodes=[];
+  for(let i=0;i<=Nr;i++){const r=i*dr;rGrid[i]=r;const R=Rnl(r);c+=r*r*R*R*dr;cdf[i]=c;
+    if(i>0&&Math.abs(R)>1e-10){if(R*prevR<0)radNodes.push(r);prevR=R;}}
+  for(let i=0;i<=Nr;i++)cdf[i]/=c;
+  let Lx=Rbig;for(let i=0;i<=Nr;i++){if(cdf[i]>=0.997){Lx=rGrid[i];break;}}
+  L_ext=Math.max(Lx,3);
+}
+function sampleR(u){let lo=0,hi=cdf.length-1;while(lo<hi){const md=(lo+hi)>>1;if(cdf[md]<u)lo=md+1;else hi=md;}if(lo===0)return rGrid[0];const t=(u-cdf[lo-1])/(cdf[lo]-cdf[lo-1]||1);return rGrid[lo-1]+t*(rGrid[lo]-rGrid[lo-1]);}
+
+// ============ 전자구름 ============
+const NPTS=6000;let px,py,pz,psgn,cloudDirty=true;
+function buildCloud(){
+  px=new Float32Array(NPTS);py=new Float32Array(NPTS);pz=new Float32Array(NPTS);psgn=new Int8Array(NPTS);
+  let maxAng=1e-9;
+  for(let i=0;i<=40;i++){const th=Math.PI*i/40;for(let j=0;j<=80;j++){const ph=TAU*j/80;const y=Yreal(th,ph);if(y*y>maxAng)maxAng=y*y;}}
+  let k=0,guard=0;
+  while(k<NPTS&&guard<NPTS*300){guard++;
+    const r=sampleR(Math.random());
+    let th,ph,y,tr=0;
+    do{const ct=2*Math.random()-1;th=Math.acos(ct);ph=TAU*Math.random();y=Yreal(th,ph);tr++;}while(y*y<Math.random()*maxAng&&tr<60);
+    const st=Math.sin(th);
+    px[k]=r*st*Math.cos(ph);py[k]=r*st*Math.sin(ph);pz[k]=r*Math.cos(th);
+    psgn[k]=(Rnl(r)*y)>=0?1:-1;k++;
+  }
+  cloudDirty=false;
+  const _ld=document.getElementById('loading');if(_ld)_ld.style.display='none';
+}
+
+// ============ 캔버스 ============
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+let W=0,H=0,DPR=1;
+function resize(){
+  DPR=Math.min(window.devicePixelRatio||1,2);
+  const r=cv.getBoundingClientRect();W=r.width;H=r.height;
+  cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);
+  sliceDirty=true;
+}
+window.addEventListener('resize',resize);
+
+let arx,ary,arz,asx,asy;
+function drawAngular(){
+  const nv=VX.length,w=NP+1;
+  if(!arx||arx.length!==nv){arx=new Float32Array(nv);ary=new Float32Array(nv);arz=new Float32Array(nv);asx=new Float32Array(nv);asy=new Float32Array(nv);}
+  const cy=Math.cos(angleY),sy_=Math.sin(angleY),cx=Math.cos(angleX),sx_=Math.sin(angleX);
+  const scale=Math.min(W,H)*0.40*zoom/maxRang,ox=W/2,oy=H/2;
+  for(let i=0;i<nv;i++){const x=VX[i],y=VY[i],z=VZ[i];
+    const x1=x*cy+z*sy_,z1=-x*sy_+z*cy,y2=y*cx-z1*sx_,z2=y*sx_+z1*cx;
+    arx[i]=x1;ary[i]=y2;arz[i]=z2;asx[i]=ox+x1*scale;asy[i]=oy-y2*scale;}
+  const Pcol=Math.round(sweepPos*NP),Trow=Math.round(sweepPos*NT);
+  const list=[];
+  for(let it=0;it<NT;it++){if(sweepAxis==='theta'&&it>=Trow)break;
+    for(let ip=0;ip<NP;ip++){if(sweepAxis==='phi'&&ip>=Pcol)break;
+      const a=it*w+ip;list.push([a,(arz[a]+arz[a+1]+arz[a+w]+arz[a+w+1])*0.25]);}}
+  list.sort((A,B)=>A[1]-B[1]);
+  const Lx=0.35,Ly=0.45,Lz=0.82;
+  ctx.clearRect(0,0,W,H);
+  for(const it of list){const a=it[0],b=a+1,d=a+w,e=d+1;
+    const ux=arx[b]-arx[a],uy=ary[b]-ary[a],uz=arz[b]-arz[a];
+    const vx=arx[d]-arx[a],vy=ary[d]-ary[a],vz=arz[d]-arz[a];
+    const nx=uy*vz-uz*vy,ny=uz*vx-ux*vz,nz=ux*vy-uy*vx,nl=Math.hypot(nx,ny,nz)||1;
+    const sh=0.30+0.62*Math.abs((nx*Lx+ny*Ly+nz*Lz)/nl);
+    const B=VS[a]>0?[255,107,157]:[92,156,255];
+    ctx.fillStyle='rgb('+(B[0]*sh|0)+','+(B[1]*sh|0)+','+(B[2]*sh|0)+')';
+    ctx.strokeStyle=ctx.fillStyle;ctx.lineWidth=0.6;
+    ctx.beginPath();ctx.moveTo(asx[a],asy[a]);ctx.lineTo(asx[b],asy[b]);ctx.lineTo(asx[e],asy[e]);ctx.lineTo(asx[d],asy[d]);ctx.closePath();ctx.fill();ctx.stroke();}
+  ctx.save();ctx.shadowColor='rgba(255,224,102,0.7)';ctx.shadowBlur=8;
+  ctx.strokeStyle='#ffe066';ctx.lineWidth=2.6;ctx.lineJoin='round';ctx.beginPath();
+  if(sweepAxis==='phi'){const P=Math.min(Pcol,NP);for(let it=0;it<=NT;it++){const i=it*w+P;if(it===0)ctx.moveTo(asx[i],asy[i]);else ctx.lineTo(asx[i],asy[i]);}}
+  else{const T=Math.min(Trow,NT);for(let ip=0;ip<=NP;ip++){const i=T*w+ip;if(ip===0)ctx.moveTo(asx[i],asy[i]);else ctx.lineTo(asx[i],asy[i]);}}
+  ctx.stroke();ctx.restore();
+}
+
+function proj3(x,y,z,cy,sy_,cx,sx_,scale,ox,oy){
+  const x1=x*cy+z*sy_,z1=-x*sy_+z*cy,y2=y*cx-z1*sx_;
+  return [ox+x1*scale,oy-y2*scale];
+}
+function drawCloud(){
+  if(!px)return;
+  const cy=Math.cos(angleY),sy_=Math.sin(angleY),cx=Math.cos(angleX),sx_=Math.sin(angleX);
+  const scale=Math.min(W,H)*0.42*zoom/L_ext,ox=W/2,oy=H/2;
+  ctx.clearRect(0,0,W,H);
+  const dz=L_ext*0.06, cPlane=sliceR*L_ext, cShell=Math.abs(sliceR)*L_ext;
+  if(sliceOn){
+    if(sliceShape==='plane'){ // 자르는 평면
+      const L=L_ext,c=cPlane;let cor;
+      if(sliceAxis==='z')cor=[[-L,-L,c],[L,-L,c],[L,L,c],[-L,L,c]];
+      else if(sliceAxis==='x')cor=[[c,-L,-L],[c,L,-L],[c,L,L],[c,-L,L]];
+      else cor=[[-L,c,-L],[L,c,-L],[L,c,L],[-L,c,L]];
+      ctx.beginPath();
+      for(let i=0;i<4;i++){const p=proj3(cor[i][0],cor[i][1],cor[i][2],cy,sy_,cx,sx_,scale,ox,oy);if(i===0)ctx.moveTo(p[0],p[1]);else ctx.lineTo(p[0],p[1]);}
+      ctx.closePath();ctx.fillStyle='rgba(255,224,102,0.06)';ctx.fill();
+      ctx.strokeStyle='rgba(255,224,102,0.38)';ctx.lineWidth=1.5;ctx.stroke();
+    }else{ // 구껍질 와이어프레임
+      const c=cShell;
+      ctx.strokeStyle='rgba(255,224,102,0.42)';ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.arc(ox,oy,c*scale,0,TAU);ctx.stroke();     // 실루엣
+      ctx.strokeStyle='rgba(255,224,102,0.20)';ctx.lineWidth=1;
+      const circ=(fx,fy,fz)=>{ctx.beginPath();for(let k=0;k<=48;k++){const t=TAU*k/48;const p=proj3(fx(t),fy(t),fz(t),cy,sy_,cx,sx_,scale,ox,oy);if(k===0)ctx.moveTo(p[0],p[1]);else ctx.lineTo(p[0],p[1]);}ctx.stroke();};
+      circ(t=>c*Math.cos(t),t=>c*Math.sin(t),()=>0);   // 적도
+      circ(t=>c*Math.sin(t),()=>0,t=>c*Math.cos(t));   // 자오선
+    }
+  }
+  ctx.globalCompositeOperation='lighter';
+  for(let i=0;i<NPTS;i++){const x=px[i],y=py[i],z=pz[i];
+    const x1=x*cy+z*sy_,z1=-x*sy_+z*cy,y2=y*cx-z1*sx_,z2=y*sx_+z1*cx;
+    const sX=ox+x1*scale,sY=oy-y2*scale,dep=(z2/L_ext+1)*0.5;
+    let a=0.18+0.32*dep,s=1.1+1.6*dep;
+    if(sliceOn){let inSlab;
+      if(sliceShape==='plane'){const coord=sliceAxis==='x'?x:sliceAxis==='y'?y:z;inSlab=Math.abs(coord-cPlane)<dz;}
+      else{inSlab=Math.abs(Math.sqrt(x*x+y*y+z*z)-cShell)<dz;}
+      if(inSlab){a=Math.min(0.62,a*1.5);s+=0.7;}else{a*=0.10;}}
+    ctx.fillStyle=psgn[i]>0?'rgba(255,107,157,'+a+')':'rgba(92,156,255,'+a+')';
+    ctx.fillRect(sX-s/2,sY-s/2,s,s);}
+  ctx.globalCompositeOperation='source-over';
+}
+
+let slice=document.createElement('canvas'),sctx=slice.getContext('2d'),sliceDirty=true;
+const SN=280;
+function buildSlice(){
+  slice.width=SN;slice.height=SN;
+  const img=sctx.createImageData(SN,SN),d=img.data,L=L_ext,az0=az*Math.PI/180;
+  let maxV=1e-12;
+  for(let j=0;j<SN;j+=2)for(let i=0;i<SN;i+=2){
+    const X=(i/(SN-1)*2-1)*L,Z=(1-j/(SN-1)*2)*L,r=Math.hypot(X,Z);if(r<1e-6)continue;
+    const th=Math.acos(Z/r),ph=X>=0?az0:az0+Math.PI,v=psi(r,th,ph),mv=densMode==='dens'?v*v:Math.abs(v);
+    if(mv>maxV)maxV=mv;}
+  for(let j=0;j<SN;j++)for(let i=0;i<SN;i++){
+    const X=(i/(SN-1)*2-1)*L,Z=(1-j/(SN-1)*2)*L,r=Math.hypot(X,Z);
+    let R=15,G=16,B=32;
+    if(r>1e-6){const th=Math.acos(Z/r),ph=X>=0?az0:az0+Math.PI,v=psi(r,th,ph);
+      if(densMode==='dens'){const t=Math.pow(v*v/maxV,0.42);R=15+t*109;G=16+t*124;B=32+t*223;}
+      else{const t=Math.sign(v)*Math.pow(Math.abs(v)/maxV,0.42);
+        if(t>=0){R=15+t*240;G=16+t*91;B=32+t*125;}else{const a=-t;R=15+a*77;G=16+a*140;B=32+a*223;}}}
+    const p=(j*SN+i)*4;d[p]=R;d[p+1]=G;d[p+2]=B;d[p+3]=255;}
+  sctx.putImageData(img,0,0);sliceDirty=false;
+}
+function drawSlice(){
+  ctx.clearRect(0,0,W,H);
+  const side=Math.min(W,H)*0.9*zoom,ox=(W-side)/2,oy=(H-side)/2;
+  ctx.imageSmoothingEnabled=true;ctx.drawImage(slice,ox,oy,side,side);
+  ctx.strokeStyle='rgba(154,160,216,0.22)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(W/2,oy);ctx.lineTo(W/2,oy+side);ctx.moveTo(ox,H/2);ctx.lineTo(ox+side,H/2);ctx.stroke();
+  ctx.fillStyle='rgba(154,160,216,0.7)';ctx.font='11px "IBM Plex Mono",monospace';
+  ctx.fillText('z',W/2+5,oy+12);ctx.fillText('±'+L_ext.toFixed(0)+' a₀',ox+side-52,H/2-6);
+}
+
+// ============ 미니 그래프 ============
+const mc=document.getElementById('mc'),m2=mc.getContext('2d');
+let MW=0,MH=0;
+function drawMini(){
+  const rr=mc.getBoundingClientRect();MW=rr.width;MH=rr.height;
+  mc.width=MW*DPR;mc.height=MH*DPR;m2.setTransform(DPR,0,0,DPR,0,0);m2.clearRect(0,0,MW,MH);
+  if(tab==='angular')drawFactors();else drawRadialPlot();
+}
+function drawFactors(){
+  const padL=24,padR=8,padT=14,gap=16,bh=(MH-padT-gap-14)/2,bw=MW-padL-padR;
+  const topY=padT,botY=padT+bh+gap;
+  let amp=1e-9;for(let i=0;i<=60;i++)amp=Math.max(amp,Math.abs(thetaFactor(Math.PI*i/60)));
+  axis(padL,topY,bw,bh,'Θ(θ) = Nₗᵐ Pₗᵐ(cosθ)','0','π');
+  m2.beginPath();for(let i=0;i<=120;i++){const th=Math.PI*i/120,v=thetaFactor(th)/amp;
+    const X=padL+bw*i/120,Y=topY+bh/2-v*bh/2*0.9;if(i===0)m2.moveTo(X,Y);else m2.lineTo(X,Y);}
+  m2.strokeStyle='#8b9bff';m2.lineWidth=2;m2.stroke();
+  const pl=(m>0?'Φ = cos '+m+'φ':(m<0?'Φ = sin '+(-m)+'φ':'Φ = 1'));
+  axis(padL,botY,bw,bh,pl,'0','2π');
+  m2.beginPath();for(let i=0;i<=120;i++){const ph=TAU*i/120,v=phiFactor(ph);
+    const X=padL+bw*i/120,Y=botY+bh/2-v*bh/2*0.9;if(i===0)m2.moveTo(X,Y);else m2.lineTo(X,Y);}
+  m2.strokeStyle='#63e6be';m2.lineWidth=2;m2.stroke();
+  if(sweepAxis==='theta'){const th=sweepPos*Math.PI,v=thetaFactor(th)/amp;
+    marker(padL+bw*sweepPos,topY+bh/2-v*bh/2*0.9);gline(padL+bw*sweepPos,topY,bh);}
+  else{const ph=sweepPos*TAU,v=phiFactor(ph);
+    marker(padL+bw*sweepPos,botY+bh/2-v*bh/2*0.9);gline(padL+bw*sweepPos,botY,bh);}
+}
+function drawRadialPlot(){
+  const padL=6,padR=6,padB=14,padT=8,bw=MW-padL-padR,bh=MH-padB-padT,x0=padL,y0=padT,L=L_ext;
+  let maxR=1e-9,maxP=1e-9,minR=0;
+  for(let i=0;i<=200;i++){const r=L*i/200,R=Rnl(r),P=r*r*R*R;if(Math.abs(R)>maxR)maxR=Math.abs(R);if(P>maxP)maxP=P;if(R<minR)minR=R;}
+  const midY=y0+bh*(maxR/(maxR-minR));
+  m2.strokeStyle='#3a3f78';m2.lineWidth=1;m2.beginPath();m2.moveTo(x0,midY);m2.lineTo(x0+bw,midY);m2.stroke();
+  m2.beginPath();for(let i=0;i<=200;i++){const r=L*i/200,P=r*r*Rnl(r)*Rnl(r),X=x0+bw*i/200,Y=y0+bh-(P/maxP)*bh;if(i===0)m2.moveTo(X,Y);else m2.lineTo(X,Y);}
+  m2.strokeStyle='#63e6be';m2.lineWidth=2;m2.stroke();
+  m2.beginPath();for(let i=0;i<=200;i++){const r=L*i/200,R=Rnl(r),X=x0+bw*i/200,Y=midY-(R/(maxR-minR))*bh;if(i===0)m2.moveTo(X,Y);else m2.lineTo(X,Y);}
+  m2.strokeStyle='#8b9bff';m2.lineWidth=2;m2.stroke();
+  m2.strokeStyle='#ffe066';m2.setLineDash([2,3]);m2.lineWidth=1;
+  for(const rn of radNodes){if(rn>L)continue;const X=x0+bw*rn/L;m2.beginPath();m2.moveTo(X,y0);m2.lineTo(X,y0+bh);m2.stroke();}
+  m2.setLineDash([]);
+  if(tab==='cloud'&&sliceOn){
+    const c=Math.abs(sliceR)*L_ext;
+    if(c<=L){const X=x0+bw*c/L,R=Rnl(c),P=c*c*R*R;
+      m2.strokeStyle='#ffffff';m2.lineWidth=1.6;m2.beginPath();m2.moveTo(X,y0);m2.lineTo(X,y0+bh);m2.stroke();
+      m2.fillStyle='#ffffff';
+      m2.beginPath();m2.arc(X,midY-(R/(maxR-minR))*bh,3.5,0,TAU);m2.fill();
+      m2.beginPath();m2.arc(X,y0+bh-(P/maxP)*bh,3.5,0,TAU);m2.fill();}
+  }
+  m2.fillStyle='#5a5f96';m2.font='9px "IBM Plex Mono",monospace';
+  m2.fillText('0',x0,MH-3);m2.textAlign='right';m2.fillText(L.toFixed(0)+' a₀',x0+bw,MH-3);m2.textAlign='left';
+}
+function axis(x,y,w,h,label,t0,t1){
+  m2.strokeStyle='#3a3f78';m2.lineWidth=1;m2.beginPath();m2.moveTo(x,y+h/2);m2.lineTo(x+w,y+h/2);m2.stroke();
+  m2.fillStyle='#9aa0d8';m2.font='10px "IBM Plex Mono",monospace';m2.fillText(label,x,y-3);
+  m2.fillStyle='#5a5f96';m2.font='9px "IBM Plex Mono",monospace';m2.fillText(t0,x-2,y+h+11);
+  m2.textAlign='right';m2.fillText(t1,x+w,y+h+11);m2.textAlign='left';
+}
+function marker(x,y){m2.beginPath();m2.arc(x,y,4.5,0,TAU);m2.fillStyle='#ffe066';m2.fill();m2.lineWidth=1.5;m2.strokeStyle='#0f1020';m2.stroke();}
+function gline(x,y,h){m2.strokeStyle='rgba(255,224,102,0.35)';m2.lineWidth=1;m2.beginPath();m2.moveTo(x,y);m2.lineTo(x,y+h);m2.stroke();}
+
+// ============ 루프 ============
+function frame(){
+  if(tab==='angular'){if(playing){sweepPos+=speed/1000;if(sweepPos>=1)sweepPos=0;syncScrub();}drawAngular();drawMini();updateCtx();}
+  else if(tab==='cloud'){if(cloudDirty||!px)buildCloud();drawCloud();}
+  else{if(sliceDirty)buildSlice();drawSlice();}
+  requestAnimationFrame(frame);
+}
+
+// ============ UI ============
+const $=id=>document.getElementById(id);
+const NAMES={0:'s',1:'p',2:'d',3:'f',4:'g',5:'h'};
+function updateInfo(){
+  $('yf').innerHTML='ψ<sub>'+n+','+l+','+(m>0?'+'+m:m)+'</sub>';
+  $('nval').textContent=n;$('lval').textContent=l;$('mval').textContent=m;
+  $('orbname').textContent=n+NAMES[l]+' 오비탈';
+  const am=Math.abs(m),rn=n-l-1,cones=l-am,planes=am,tot=n-1;
+  $('info').innerHTML=
+    '<div>동경 노드 = n−l−1 = <b class="k">'+rn+'</b>  (Laguerre)</div>'+
+    '<div>각 노드 = l = <b class="k">'+l+'</b>  (원뿔 '+cones+' + 방위각면 '+planes+')</div>'+
+    '<div>총 노드 = n−1 = <b class="tot">'+tot+'</b></div>';
+  $('mleg').innerHTML = tab==='angular'
+    ? '<span><i style="background:#8b9bff"></i>Θ(θ)</span><span><i style="background:#63e6be"></i>Φ(φ)</span><span><i style="background:#ffe066"></i>스윕 위치</span>'
+    : '<span><i style="background:#8b9bff"></i>Rₙₗ(r)</span><span><i style="background:#63e6be"></i>r²Rₙₗ²</span><span><i style="background:#ffe066"></i>노드</span>';
+  $('hint').innerHTML = tab==='angular'
+    ? '각 표면은 <b style="color:#e6e8ff">(l,m)만</b> 결정 · n은 동경 R에만 영향. 노란 곡선=지금 그리는 단면.'
+    : (tab==='cloud'?'드래그 회전·휠 확대. 붉은 점 ψ&gt;0/푸른 점 ψ&lt;0. 슬라이스 위치 = 아래 그래프 <b style="color:#fff">흰 선</b>.':'노드=색 경계. m&lt;0은 φ₀로 로브면을 돌려보세요.');
+}
+function updateCtx(){
+  if(tab!=='angular'){$('ctx').textContent='';return;}
+  if(sweepAxis==='phi')$('ctx').textContent='φ = '+((sweepPos*360)|0)+'°  ·  자오선(θ) 곡선을 회전';
+  else $('ctx').textContent='θ = '+((sweepPos*180)|0)+'°  ·  위도(φ) 고리를 적층';
+}
+function syncScrub(){$('scrub').value=Math.round(sweepPos*1000);$('scrubval').textContent=(sweepAxis==='phi'?(sweepPos*360|0):(sweepPos*180|0))+'°';$('scrublab').textContent=sweepAxis==='phi'?'φ':'θ';}
+
+function rebuildLM(){
+  const ls=$('lsl');ls.max=n-1;if(l>n-1)l=n-1;ls.value=l;$('lticks').innerHTML='<span>0</span><span>'+(n-1)+'</span>';
+  const ms=$('msl');ms.min=-l;ms.max=l;if(m>l)m=l;if(m<-l)m=-l;ms.value=m;$('mticks').innerHTML='<span>−'+l+'</span><span>0</span><span>+'+l+'</span>';
+}
+function heavyRebuild(){
+  buildRadial();buildAngular();cloudDirty=true;sliceDirty=true;
+  updateSliceLabel();
+  if(tab==='cloud')$('loading').style.display='block';
+  drawMini();updateInfo();
+}
+function setDefaultAz(){az=(m<0)?Math.round(90/Math.max(1,Math.abs(m))):0;$('azsl').value=az;$('azval').textContent=az+'°';}
+
+$('nsl').addEventListener('input',e=>{n=+e.target.value;rebuildLM();setDefaultAz();heavyRebuild();});
+$('lsl').addEventListener('input',e=>{l=+e.target.value;const ms=$('msl');ms.min=-l;ms.max=l;if(m>l)m=l;if(m<-l)m=-l;ms.value=m;$('mticks').innerHTML='<span>−'+l+'</span><span>0</span><span>+'+l+'</span>';sweepPos=0;setDefaultAz();heavyRebuild();});
+$('msl').addEventListener('input',e=>{m=+e.target.value;$('mval').textContent=m;sweepPos=0;setDefaultAz();heavyRebuild();});
+
+function setTab(t){
+  tab=t;
+  $('tab1').classList.toggle('on',t==='angular');$('tab2').classList.toggle('on',t==='cloud');$('tab3').classList.toggle('on',t==='slice');
+  $('ctrlAngular').style.display=t==='angular'?'block':'none';
+  $('ctrlSlice').style.display=t==='slice'?'block':'none';
+  $('ctrlCloud').style.display=t==='cloud'?'block':'none';
+  if(t==='cloud')updateSliceLabel();
+  if(t==='cloud'&&cloudDirty)$('loading').style.display='block';
+  drawMini();updateInfo();updateCtx();
+}
+$('tab1').addEventListener('click',()=>setTab('angular'));
+$('tab2').addEventListener('click',()=>setTab('cloud'));
+$('tab3').addEventListener('click',()=>setTab('slice'));
+
+function setSweep(ax){sweepAxis=ax;$('swPhi').classList.toggle('on',ax==='phi');$('swTheta').classList.toggle('on',ax==='theta');sweepPos=0;syncScrub();}
+$('swPhi').addEventListener('click',()=>setSweep('phi'));
+$('swTheta').addEventListener('click',()=>setSweep('theta'));
+$('bPlay').addEventListener('click',e=>{playing=!playing;e.target.textContent=playing?'⏸ 정지':'▶ 재생';});
+$('bReplay').addEventListener('click',()=>{sweepPos=0;playing=true;$('bPlay').textContent='⏸ 정지';syncScrub();});
+$('scrub').addEventListener('input',e=>{sweepPos=+e.target.value/1000;playing=false;$('bPlay').textContent='▶ 재생';syncScrub();});
+$('dPsi').addEventListener('click',()=>{densMode='psi';$('dPsi').classList.add('on');$('dDens').classList.remove('on');sliceDirty=true;});
+$('dDens').addEventListener('click',()=>{densMode='dens';$('dDens').classList.add('on');$('dPsi').classList.remove('on');sliceDirty=true;});
+$('azsl').addEventListener('input',e=>{az=+e.target.value;$('azval').textContent=az+'°';sliceDirty=true;});
+
+function updateSliceLabel(){const v=(sliceShape==='shell'?Math.abs(sliceR):sliceR)*L_ext;$('scval').textContent=v.toFixed(1)+' a₀';}
+function setShape(sh){sliceShape=sh;$('shPlane').classList.toggle('on',sh==='plane');$('shShell').classList.toggle('on',sh==='shell');
+  $('axisBox').style.display=sh==='shell'?'none':'block';
+  $('sliceposlab').textContent=sh==='shell'?'껍질 반지름':'슬라이스 위치';
+  updateSliceLabel();drawMini();}
+$('shPlane').addEventListener('click',()=>setShape('plane'));
+$('shShell').addEventListener('click',()=>setShape('shell'));
+$('sliceOff').addEventListener('click',()=>{sliceOn=false;$('sliceOff').classList.add('on');$('sliceOnBtn').classList.remove('on');$('sliceCtl').style.display='none';drawMini();});
+$('sliceOnBtn').addEventListener('click',()=>{sliceOn=true;$('sliceOnBtn').classList.add('on');$('sliceOff').classList.remove('on');$('sliceCtl').style.display='block';updateSliceLabel();drawMini();});
+function setAxis(a){sliceAxis=a;$('axX').classList.toggle('on',a==='x');$('axY').classList.toggle('on',a==='y');$('axZ').classList.toggle('on',a==='z');}
+$('axX').addEventListener('click',()=>setAxis('x'));
+$('axY').addEventListener('click',()=>setAxis('y'));
+$('axZ').addEventListener('click',()=>setAxis('z'));
+$('slicePos').addEventListener('input',e=>{sliceR=+e.target.value/1000;updateSliceLabel();drawMini();});
+
+let drag=false,lx=0,ly=0;
+cv.addEventListener('pointerdown',e=>{drag=true;lx=e.clientX;ly=e.clientY;cv.setPointerCapture(e.pointerId);});
+cv.addEventListener('pointermove',e=>{if(!drag||tab==='slice')return;angleY+=(e.clientX-lx)*0.008;angleX=Math.max(-1.5,Math.min(1.5,angleX+(e.clientY-ly)*0.008));lx=e.clientX;ly=e.clientY;});
+cv.addEventListener('pointerup',()=>drag=false);cv.addEventListener('pointercancel',()=>drag=false);
+cv.addEventListener('wheel',e=>{e.preventDefault();zoom=Math.max(0.4,Math.min(3,zoom*(e.deltaY<0?1.08:0.925)));sliceDirty=true;},{passive:false});
+
+resize();rebuildLM();setDefaultAz();buildRadial();buildAngular();drawMini();updateInfo();updateCtx();
+$('bPlay').textContent='⏸ 정지';
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
